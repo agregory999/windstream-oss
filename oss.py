@@ -27,7 +27,7 @@ compartment_id = "ocid1.compartment.oc1..aaaaaaaasczurylkzvviqfujhtinyiycg27yelt
 bucket_name = "directory-upload"
 
 # Whether to recurse with subprocess
-recurse_subdirectory_process = True
+recurse_subdirectory_process = False
 
 # Multi-part Parallelism
 multipart_parallism = 5
@@ -54,13 +54,13 @@ def multipartUpload(path: str, name: str, upload_manager, namespace):
         sema.release()
 
 def processDirectory(path: Path, object_storage_client, upload_manager, namespace, proc_list, recurse_level: int):
-    print(f"Processing Directory {path}")
+    print(f"{os.getpid()} Processing Directory {path}")
     if path.exists():
         print(f"{recurse_level}|Directory {path.relative_to(folder).as_posix()} ")
         for object in path.iterdir():
             if object.is_dir():
                 # Recurse into directory
-                if recurse_subdirectory_process:
+                if recurse_subdirectory_process and len(proc_list) < concurrency:
                     # Process subdirectory with sub-process
                     print(f"Recurse Directory {object} with Process")
                     sema.acquire()
@@ -115,8 +115,8 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                     )
                     end = time.time()
                     print(f"{os.getpid()} Finished uploading {object_name} Time: {end - start}s")
-                
-
+    print(f"{os.getpid()} Finished Directory {path}")
+    sema.release()
 
 if __name__ == '__main__':
 

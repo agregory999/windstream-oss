@@ -21,7 +21,7 @@ object_storage_client = oci.object_storage.ObjectStorageClient(config)
 namespace_name = object_storage_client.get_namespace().data
 
 # Concurrency
-sema = Semaphore(5)
+sema = Semaphore(10)
 
 def deleteObject(object_storage_client,namespace_name,bucket_name,object_name ):
     #sema.acquire()
@@ -64,13 +64,13 @@ for obj in list_objects_response.data.objects:
                         ))
     process.start()
 
-while list_objects_response.data.next_starts_with != None:
-    print(f"{os.getpid()} Next round {list_objects_response.data.next_starts_with}")
+while list_objects_response.data.next_start_with != None:
+    print(f"{os.getpid()} Next round {list_objects_response.data.next_start_with}")
     list_objects_response2 = object_storage_client.list_objects(
         namespace_name=namespace_name,
         bucket_name=bucket_name,
     # prefix="EXAMPLE-prefix-Value",
-        start=list_objects_response.data.next_starts_with
+        start=list_objects_response.data.next_start_with
     # end="EXAMPLE-end-Value",
     # limit=824,
     # delimiter="EXAMPLE-delimiter-Value",
@@ -79,9 +79,10 @@ while list_objects_response.data.next_starts_with != None:
     # start_after="EXAMPLE-startAfter-Value"
 )   
     for obj in list_objects_response2.data.objects:
-        print(f"{os.getpid()} (list_objects_response.data.next_starts_with) Object Name: {obj.name}")
+        print(f"{os.getpid()} (list_objects_response.data.next_start_with) Object Name: {obj.name}")
         process = Process(target=deleteObject, args=(
-                            object_storage_client.get_namespace().data, 
+                            object_storage_client,
+			    namespace_name, 
                             bucket_name, 
                             obj.name))
         process.start()
