@@ -119,7 +119,7 @@ if __name__ == '__main__':
         print ("Not enough args")
         exit
 
-    concurrency = sys.argv[1]
+    concurrency = int(sys.argv[1])
     folder = sys.argv[2]
 
     config = oci.config.from_file()
