@@ -56,7 +56,7 @@ def multipartUpload(path: str, name: str, upload_manager, namespace):
 def processDirectory(path: Path, object_storage_client, upload_manager, namespace, proc_list):
     print(f"Processing Directory {path}")
     if path.exists():
-        print("in directory ---- " + path.relative_to(p).as_posix())
+        print(f"Directory {path.relative_to(folder).as_posix()} ")
         for object in path.iterdir():
             if object.is_dir():
                 # Recurse into directory
@@ -105,7 +105,7 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                         namespace, 
                         bucket_name, 
                         object_name=object_name, 
-                        object_body=object
+                        put_object_body=object
                     )
                     end = time.time()
                     print(f"Finished uploading {object_name} Time: {end - start}s")
