@@ -27,7 +27,7 @@ compartment_id = "ocid1.compartment.oc1..aaaaaaaasczurylkzvviqfujhtinyiycg27yelt
 bucket_name = "directory-upload"
 
 # Whether to recurse with subprocess
-recurse_subdirectory_process = False
+recurse_subdirectory_process = True
 
 # Multi-part Parallelism
 multipart_parallism = 5
@@ -40,7 +40,7 @@ def multipartUpload(path: str, name: str, upload_manager, namespace):
     with open(path, "rb") as in_file:
         start = time.time()
         # Actual uplaod as multi-part
-        print(f"Started MP uploading: {name}")
+        print(f"{os.getpid()} Started MP uploading: {name}")
         response = upload_manager.upload_file(
                 namespace,
                 bucket_name,
@@ -50,7 +50,7 @@ def multipartUpload(path: str, name: str, upload_manager, namespace):
                 progress_callback=progress_callback)
 
         end = time.time()
-        print(f"Finished MP uploading: {name} Time: {end - start}s")
+        print(f"{os.getpid()} Finished MP uploading: {name} Time: {end - start}s")
         sema.release()
 
 def processDirectory(path: Path, object_storage_client, upload_manager, namespace, proc_list):
@@ -64,11 +64,13 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                     # Process subdirectory with sub-process
                     print(f"Recurse Directory {object} with Process")
                     sema.acquire()
-                    process = Process(target=multipartUpload, args=(
-                        path, 
-                        object.relative_to(folder).as_posix(), 
+                    process = Process(target=processDirectory, args=(
+                        object, 
+                        object_storage_client, 
                         upload_manager, 
-                        namespace))
+                        namespace,
+                        proc_list)
+                    )
                   
                     proc_list.append(process)
                     process.start()
@@ -85,12 +87,12 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                     )
             else:
                 # Must be a file
-                print(f"Process File {object.as_posix()}")
+                print(f"{os.getpid()} File size: {os.stat(path).st_size} Threshold: {DEFAULT_PART_SIZE}")
                 # If larger than 128MB, process as multi-part in separate process
-                if os.stat(path).st_size > DEFAULT_PART_SIZE:
+                if os.stat(object).st_size > DEFAULT_PART_SIZE:
                     sema.acquire()
                     process = Process(target=multipartUpload, args=(
-                        path, 
+                        object.as_posix(), 
                         object.relative_to(folder).as_posix(), 
                         upload_manager, 
                         namespace))
@@ -99,9 +101,9 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                 else:
                     # Regular put (main thread)
                     object_name=object.relative_to(folder).as_posix()
-                    print(f"Starting upload {object_name}")
+                    print(f"{os.getpid()} Starting upload {object_name}")
                     start = time.time()
-                    with open(path, "rb") as in_file:
+                    with open(object, "rb") as in_file:
                         object_storage_client.put_object(
                             namespace, 
                             bucket_name, 
@@ -109,7 +111,7 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                             put_object_body=in_file
                     )
                     end = time.time()
-                    print(f"Finished uploading {object_name} Time: {end - start}s")
+                    print(f"{os.getpid()} Finished uploading {object_name} Time: {end - start}s")
                 
 
 
