@@ -120,7 +120,7 @@ if __name__ == '__main__':
         exit
 
     concurrency = int(sys.argv[1])
-    folder = sys.argv[2]
+    folder = Path(sys.argv[2])
 
     config = oci.config.from_file()
     object_storage_client = oci.object_storage.ObjectStorageClient(config)
