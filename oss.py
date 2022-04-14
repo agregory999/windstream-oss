@@ -101,11 +101,12 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                     object_name=object.relative_to(folder).as_posix()
                     print(f"Starting upload {object_name}")
                     start = time.time()
-                    object_storage_client.put_object(
-                        namespace, 
-                        bucket_name, 
-                        object_name=object_name, 
-                        put_object_body=object
+                    with open(path, "rb") as in_file:
+                        object_storage_client.put_object(
+                            namespace, 
+                            bucket_name, 
+                            object_name=object_name, 
+                            put_object_body=in_file
                     )
                     end = time.time()
                     print(f"Finished uploading {object_name} Time: {end - start}s")
