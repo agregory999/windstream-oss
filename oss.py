@@ -53,10 +53,10 @@ def multipartUpload(path: str, name: str, upload_manager, namespace):
         print(f"{os.getpid()} Finished MP uploading: {name} Time: {end - start}s")
         sema.release()
 
-def processDirectory(path: Path, object_storage_client, upload_manager, namespace, proc_list):
+def processDirectory(path: Path, object_storage_client, upload_manager, namespace, proc_list, recurse_level: int):
     print(f"Processing Directory {path}")
     if path.exists():
-        print(f"Directory {path.relative_to(folder).as_posix()} ")
+        print(f"{recurse_level}|Directory {path.relative_to(folder).as_posix()} ")
         for object in path.iterdir():
             if object.is_dir():
                 # Recurse into directory
@@ -69,7 +69,9 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                         object_storage_client, 
                         upload_manager, 
                         namespace,
-                        proc_list)
+                        proc_list,
+                        recurse_level+1
+                        )
                     )
                   
                     proc_list.append(process)
@@ -83,7 +85,8 @@ def processDirectory(path: Path, object_storage_client, upload_manager, namespac
                         object_storage_client, 
                         upload_manager, 
                         namespace, 
-                        proc_list
+                        proc_list,
+                        recurse_level+1
                     )
             else:
                 # Must be a file
@@ -135,8 +138,13 @@ if __name__ == '__main__':
     sema = Semaphore(concurrency)
 
     if folder.exists() and folder.is_dir():
-        processDirectory(folder, object_storage_client,
-                          upload_manager, namespace, proc_list)
+        processDirectory(
+            folder, 
+            object_storage_client,
+            upload_manager, 
+            namespace, 
+            proc_list,
+            0)
     else:
         print ("Not a folder")
         exit
