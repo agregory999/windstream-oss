@@ -16,11 +16,7 @@ import argparse
 import threading
 
 # The root directory path, Replace with your path
-<<<<<<< HEAD
 folder = Path('/Users/argregor/windstream-python/files')
-=======
-p = Path('/home/andrew_gre/oracle-functions-samples')
->>>>>>> e6fc94ee11f5841bf0243ee870908d6d58f61b6e
 
 # The Compartment OCID
 compartment_id = "ocid1.compartment.oc1..aaaaaaaasczurylkzvviqfujhtinyiycg27yelt4opnwo3rgsfu22cuehv6q"
@@ -51,7 +47,7 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace)
 
     # Initialize (don't like this)
     config = oci.config.from_file()
-    object_storage_client = oci.object_storage.ObjectStorageClient(config)
+    data.object_storage_client = oci.object_storage.ObjectStorageClient(config)
     upload_manager = UploadManager(object_storage_client, allow_parallel_uploads=True)
     namespace = object_storage_client.get_namespace().data
 
@@ -80,83 +76,6 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace)
                 namespace, bucket_name, object_name, in_file)
             data.end = time.time()
             print(f"{os.getpid()} Finished uploading {full_file_name} Time: {(data.end - data.start):.2f}s Size: {os.stat(full_file_name).st_size} bytes")
-
-def uploadOSS(path: str, name: str, object_storage_client, namespace):
-    with open(path, "rb") as in_file:
-        #print(f"File Size: {os.stat(path).st_size}")
-        if os.stat(path).st_size > 100000000:
-            # Use multi-part
-            if verbose:
-                print(f"{os.getpid()} Starting MP multi-part upload {name}")
-
-            upload_manager = UploadManager(
-                object_storage_client, allow_parallel_uploads=True)
-            start = time.time()
-            response = upload_manager.upload_file(
-                namespace,
-                bucket_name,
-                name,
-                path,
-                part_size=DEFAULT_PART_SIZE,
-                progress_callback=progress_callback)
-            end = time.time()
-<<<<<<< HEAD
-            if verbose:
-                print(f"{os.getpid()} Finished MP uploading: {name} Time: {end - start}s Size: {os.stat(path)} bytes")
-=======
-            print(f"{os.getpid()} Finished MP uploading: {name} Time: {end - start}s Size: {os.stat(path).st_size} bytes")
->>>>>>> e6fc94ee11f5841bf0243ee870908d6d58f61b6e
-        else:
-            if verbose:
-                print(f"{os.getpid()} Starting upload {path} {name}")
-            start = time.time()
-            object_storage_client.put_object(
-                namespace, bucket_name, name, in_file)
-            end = time.time()
-<<<<<<< HEAD
-            if verbose:
-                print(f"{os.getpid()} Finished uploading {name} Time: {end - start}s Size: {os.stat(path)} bytes")
-
-=======
-            print(f"{os.getpid()} Finished uploading {name} Time: {end - start}s Size: {os.stat(path).st_size} bytes")
-    sema.release()
->>>>>>> e6fc94ee11f5841bf0243ee870908d6d58f61b6e
-
-def processDirectoryLocal(path: Path, object_storage_client, namespace):
-    print(f"{os.getpid()} Processing Directory {path}")
-    
-    if path.exists():
-        for object in path.iterdir():
-            #print(f"{os.getpid()} Processing {object.as_posix()}")
-            if object.is_dir():
-                if verbose:
-                    print(f"{os.getpid()} Recurse Directory {object.as_posix()}")
-                processDirectoryLocal(object, object_storage_client, namespace)
-            else:
-                # File
-                object_name = os.path.basename(folder) + "/" + object.relative_to(folder).as_posix() if add_enclosing_folder else object.relative_to(folder).as_posix()
-
-                # print(f"os.path.basename: {os.path.basename(folder)}")
-                # print(f"Using object_name {object_name}")
-                if verbose:
-                    print(f"{os.getpid()} Process File {object.relative_to(folder).as_posix()} - Insert as name: {object_name}")
-                # New Process
-                sema.acquire()
-                process = Process(target=uploadOSS, args=(
-                        object.as_posix(), 
-                        object_name,
-                        object_storage_client, 
-                        namespace
-                ))
-                proc_list.append(process)
-                process.start()
-<<<<<<< HEAD
-                #uploadOSS(object.as_posix(), object.relative_to(folder).as_posix(), object_storage_client, namespace)
-
-=======
-                #uploadOSS(object.as_posix(), object.relative_to(p).as_posix(), object_storage_client, namespace)
->>>>>>> e6fc94ee11f5841bf0243ee870908d6d58f61b6e
-
 
 if __name__ == '__main__':
 
@@ -197,7 +116,6 @@ if __name__ == '__main__':
     config = oci.config.from_file()
     object_storage_client = oci.object_storage.ObjectStorageClient(config)
     namespace = object_storage_client.get_namespace().data
-<<<<<<< HEAD
  
     # Try with Process Pool
     futures = []
@@ -212,25 +130,3 @@ if __name__ == '__main__':
     for result in results:
         print(result)
 
-    exit
-    # config = oci.config.from_file()
-    # object_storage_client = oci.object_storage.ObjectStorageClient(config)
-    # namespace = object_storage_client.get_namespace().data
-    # sema = Semaphore(concurrency)
-    # proc_list: array = []
-
-    # if folder.exists() and folder.is_dir():
-    #     processDirectoryLocal(folder, object_storage_client, namespace)
-
-    # for job in proc_list:
-    #     job.join()
-=======
-    sema = Semaphore(5)
-    proc_list: array = []
-
-    if p.exists() and p.is_dir():
-        processDirectoryLocal(p, object_storage_client, namespace)
-
-    for job in proc_list:
-        job.join()
->>>>>>> e6fc94ee11f5841bf0243ee870908d6d58f61b6e
