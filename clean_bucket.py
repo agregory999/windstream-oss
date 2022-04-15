@@ -58,7 +58,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         )  
 
         for obj in list_objects_response2.data.objects:
-            print(f"{os.getpid()} (list_objects_response.data.next_start_with) Object Name: {obj.name}")
+            print(f"{os.getpid()} (list_objects_response2.data.next_start_with) Object Name: {obj.name}")
             futures.append(executor.submit(deleteObject, object_storage_client,namespace_name,bucket_name,obj.name))
     
     concurrent.futures.wait(futures)

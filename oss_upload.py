@@ -10,7 +10,7 @@ from multiprocessing import Semaphore
 from multiprocessing import Process
 
 # The root directory path, Replace with your path
-p = Path('/Users/argregor/windstream-python/files')
+p = Path('/home/andrew_gre/oracle-functions-samples')
 
 # The Compartment OCID
 compartment_id = "ocid1.compartment.oc1..aaaaaaaasczurylkzvviqfujhtinyiycg27yelt4opnwo3rgsfu22cuehv6q"
@@ -43,15 +43,15 @@ def uploadOSS(path: str, name: str, object_storage_client, namespace):
                 part_size=DEFAULT_PART_SIZE,
                 progress_callback=progress_callback)
             end = time.time()
-            print(f"{os.getpid()} Finished MP uploading: {name} Time: {end - start}s Size: {os.stat(path)} bytes")
+            print(f"{os.getpid()} Finished MP uploading: {name} Time: {end - start}s Size: {os.stat(path).st_size} bytes")
         else:
             print(f"{os.getpid()} Starting upload {name}")
             start = time.time()
             object_storage_client.put_object(
                 namespace, bucket_name, name, in_file)
             end = time.time()
-            print(f"{os.getpid()} Finished uploading {name} Time: {end - start}s Size: {os.stat(path)} bytes")
-
+            print(f"{os.getpid()} Finished uploading {name} Time: {end - start}s Size: {os.stat(path).st_size} bytes")
+    sema.release()
 
 def processDirectoryLocal(path: Path, object_storage_client, namespace):
     print(f"{os.getpid()} Processing Directory {path}")
@@ -73,7 +73,7 @@ def processDirectoryLocal(path: Path, object_storage_client, namespace):
                 ))
                 proc_list.append(process)
                 process.start()
-                uploadOSS(object.as_posix(), object.relative_to(p).as_posix(), object_storage_client, namespace)
+                #uploadOSS(object.as_posix(), object.relative_to(p).as_posix(), object_storage_client, namespace)
 
 
 if __name__ == '__main__':
