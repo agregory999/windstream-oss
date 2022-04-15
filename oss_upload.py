@@ -52,10 +52,11 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace)
     namespace = object_storage_client.get_namespace().data
 
     full_file_name = path + "/" + filename
+    object_name = str(base_object_name) + "/" + str(filename)
     if verbose:
         print(f"{os.getpid()} Path: {full_file_name} Name: {base_object_name} Size: {os.stat(full_file_name).st_size} Namespace: {namespace}")
+        #print(f"Object name: {object_name}")
 
-    object_name = str(base_object_name) + "/" + str(filename)
     if os.stat(full_file_name).st_size > mp_threshold:
         data.start = time.time()
 
