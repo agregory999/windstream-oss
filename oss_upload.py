@@ -54,6 +54,9 @@ def progress_callback(bytes_uploaded):
     return
     #print("{} additional bytes uploaded".format(bytes_uploaded))
 
+def stat_to_json(fp: str) -> dict:
+    s_obj = os.stat(fp)
+    return {k: str(getattr(s_obj, k)) for k in dir(s_obj) if k.startswith('st_')}
 
 def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace, bucket_name, verbose: bool):
 
@@ -67,6 +70,10 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace,
     # If root directory object, just use filename as object name
     # otherwise take the relative path (base_object_name) and append / filename
     object_name = str(filename) if str(base_object_name) == "" else str(base_object_name) + "/" + str(filename)
+    object_metadata = stat_to_json(full_file_name)
+    object_metadata["mask"] = str(oct(os.stat(full_file_name).st_mode & 0o777))
+    #object_metadata["size"] = str(os.stat(full_file_name).st_size)
+    #object_metadata=os.stat(full_file_name).i
     if verbose:
         print(f"{os.getpid()} File Path: {full_file_name} Object Name: {object_name} File Size: {os.stat(full_file_name).st_size} Namespace: {namespace}")
     if os.stat(full_file_name).st_size > mp_threshold:
@@ -78,6 +85,7 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace,
             bucket_name,
             object_name,
             full_file_name,
+            metadata=object_metadata,
             part_size=DEFAULT_PART_SIZE,
             progress_callback=progress_callback)
         end = time.time()
@@ -88,7 +96,11 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace,
             # Reg put  
             start = time.time()
             object_storage_client.put_object(
-                namespace, bucket_name, object_name, in_file)
+                namespace_name=namespace, 
+                bucket_name=bucket_name, 
+                object_name=object_name, 
+                put_object_body=in_file,
+                opc_meta=object_metadata)
             end = time.time()
             if verbose:
                 print(f"{os.getpid()} Finished PUT uploading {full_file_name} Time: {(end - start):.2f}s Size: {os.stat(full_file_name).st_size} bytes")
