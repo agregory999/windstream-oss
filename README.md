@@ -1,27 +1,13 @@
 # Windstream-oss - Python SDK + OSS
 Python scripts to fully utilize python SDK and OSS multi-part
 
-## Algorithm (proposed)_
+## Algorithm 
 
-### Constants
-large file = >1GB
-concurrency = 10
+uploadOSS.py
+- Given a local folder, walk the tree and upload all files to OSS
+- Use parallel multipart uploads if the file exceeds 128M
+- Use OS Process Pool to define external processes to do the work.
 
-### Recursive Process
-Start at top level:
-
-identify large files - for each large file, kick off subprocess for multi-part
-
-open local tar file for writing
-each local file is added to tar
-large files are excluded
-
-directory found - recurse
-
-Once done with listing, close tar file and call large_file routine
-delete local tar file
-
-
-### Subroutines
-large_file - use multi-part with UploadManager, use file permissions as metadata
+clean_bucket.py
+- Generates a listing of an bjoect bucket and deletes every object in it
 
