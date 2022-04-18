@@ -1,29 +1,41 @@
-# import array
+'''
+ This script allows for parallel processing of files from a directory tree on a local drive or mount to an OCI object storage bucket.
+
+ NOTE: we are not doing any synchronization, nor can we do file filtering.  Both are potential options
+
+ Access the script by running as such:
+ $> python3 oss_upload.py <options>
+
+ The only required options are:
+ -c/--compartment   :   The OCID of the compartment where the bucket is located
+ -f/--folder        :   The local folder to do the push from
+ -b/--bucket        :   The name of the OCI OSS bucket within the compartment.  Assumes your user within OCI local config has write permissions
+
+ Options:
+ -p/--parallelism   :   Level of parallelism - # of processes to use 
+ -w/--write         :   Add enclosing folder to the path.  For example, if the folder is /a/b/c, all files under c are uploaded, but c/file would be in the object name
+ -th/--threshold    :   Size in bytes over which to favor multi-part upload instead of object PUT.   Defaults to 128M
+ -v/--verbose       :   Prints more information
+'''
+import os
+import time
+import oci
 from concurrent.futures import ProcessPoolExecutor
 from itertools import repeat
 from multiprocessing.connection import wait
-import os
-from pickle import FALSE
-import time
-import oci
 from oci.object_storage import UploadManager
 from oci.object_storage.transfer.constants import DEFAULT_PART_SIZE
 from pathlib import Path
-
-# from multiprocessing import Semaphore
-# from multiprocessing import Process
 import argparse
-# import threading
 
 # The root directory path, Replace with your path
-folder = Path('/Users/argregor/windstream-python/files')
+folder = None
 
 # The Compartment OCID
-compartment_id = "ocid1.compartment.oc1..aaaaaaaasczurylkzvviqfujhtinyiycg27yelt4opnwo3rgsfu22cuehv6q"
+compartment_id = ""
 
 # The Bucket name where we will upload
-#bucket_name = "bucket-directory-upload"
-bucket_name = "directory-upload"
+bucket_name = ""
 
 # Verbose
 verbose = False
@@ -37,11 +49,13 @@ concurrency = 5
 # MP threashold bytes
 mp_threshold = DEFAULT_PART_SIZE
 
+
 def progress_callback(bytes_uploaded):
     return
     #print("{} additional bytes uploaded".format(bytes_uploaded))
 
-def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace, verbose: bool):
+
+def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace, bucket_name, verbose: bool):
 
     # Initialize (don't like this)
     config = oci.config.from_file()
@@ -54,9 +68,7 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace,
     # otherwise take the relative path (base_object_name) and append / filename
     object_name = str(filename) if str(base_object_name) == "" else str(base_object_name) + "/" + str(filename)
     if verbose:
-        print(f"{os.getpid()} Path: {full_file_name} Base Name: {base_object_name} Size: {os.stat(full_file_name).st_size} Namespace: {namespace}")
-        #print(f"Object name: {object_name}")
-        print(f"{os.getpid()} Start uploading {full_file_name} with name {object_name}")
+        print(f"{os.getpid()} File Path: {full_file_name} Object Name: {object_name} File Size: {os.stat(full_file_name).st_size} Namespace: {namespace}")
     if os.stat(full_file_name).st_size > mp_threshold:
         start = time.time()
         
@@ -79,7 +91,7 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace,
                 namespace, bucket_name, object_name, in_file)
             end = time.time()
             if verbose:
-                print(f"{os.getpid()} Finished uploading {full_file_name} Time: {(end - start):.2f}s Size: {os.stat(full_file_name).st_size} bytes")
+                print(f"{os.getpid()} Finished PUT uploading {full_file_name} Time: {(end - start):.2f}s Size: {os.stat(full_file_name).st_size} bytes")
 
 if __name__ == '__main__':
 
@@ -87,8 +99,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
     parser.add_argument("-w", "--write", help="take outer folder as enclosing and add it to object names", action="store_true")
-    parser.add_argument("-b", "--bucket", help="name of bucket")
-    parser.add_argument("-c", "--compartment", help="OCID of compartment")
+    parser.add_argument("-b", "--bucket", help="name of bucket", required=True)
+    parser.add_argument("-c", "--compartment", help="OCID of compartment", required=True)
     parser.add_argument("-p", "--parallelism", type=int, help="parallel processes allowed")
     parser.add_argument("-f", "--folder", type=Path, help="path to local folder to upload", required=True)
     parser.add_argument("-th", "--threshold", type=int, help="threshold in bytes for multi-part upload")
@@ -138,28 +150,24 @@ if __name__ == '__main__':
             rel_path = "" if str(p.relative_to(folder)) == "." else p.relative_to(folder)
             if verbose:
                 print(f"Rel to {folder} : {rel_path}")
-            # If enclosing, start with that
+            # If enclosing folder, build object name with path element
             if add_enclosing_folder:
                 base_object_name = os.path.basename(folder)
+                # If we are in root folder, don't add anything to path.  Otherfile append relative path to file
                 if str(rel_path) != "":
                     base_object_name += "/"
                     base_object_name += str(rel_path)
             else:
                 base_object_name = str(rel_path)
-            #base_object_name = os.path.basename(folder) if add_enclosing_folder else ""
-            # Now if we are in root, do nothing
-            # but if not in root append / and path
-            #if str(rel_path) != "":
-            #    base_object_name += "/" 
-            #    base_object_name += str(rel_path)
-            #base_object_name = os.path.basename(folder) + ("/" + str(rel_path) if str(rel_path) == "" else "" ) if add_enclosing_folder else str(rel_path)
-            # Will be prepended to file name in subprocess after map
             if verbose:
-                print(f"Base Obj Name :  {base_object_name}")
+                print(f"Base Object Name :  {base_object_name}")
             # This is what takes the list of all files and sends it to the Process Pool
             # results is a Future List, but should be empty
-            results = executor.map(uploadOSSProcess,repeat(root),files,repeat(base_object_name),repeat(namespace),repeat(verbose))
+            # pseudocode here:
+            # For each file in the list, call the uploadOSS function, but use the folder name for each file.  Also the namespace and verbosity are passed into it.
+            results = executor.map(uploadOSSProcess,repeat(root),files,repeat(base_object_name),repeat(namespace),repeat(bucket_name),repeat(verbose))
     for result in results:
+        # This is only to make the program wait for all of the files to be processed.
         if verbose:
             print (f"Result {result}")
 
