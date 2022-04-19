@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 '''
  This script allows for parallel processing of files from a directory tree on a local drive or mount to an OCI object storage bucket.
 
