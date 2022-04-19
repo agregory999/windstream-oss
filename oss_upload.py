@@ -73,29 +73,28 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace,
     object_name = str(filename) if str(base_object_name) == "" else str(base_object_name) + "/" + str(filename)
     object_metadata = stat_to_json(full_file_name)
     object_metadata["mask"] = str(oct(os.stat(full_file_name).st_mode & 0o777))
-    #object_metadata["size"] = str(os.stat(full_file_name).st_size)
-    #object_metadata=os.stat(full_file_name).i
+
     if verbose:
         print(f"{os.getpid()} File Path: {full_file_name} Object Name: {object_name} File Size: {os.stat(full_file_name).st_size} Namespace: {namespace}")
-    if os.stat(full_file_name).st_size > mp_threshold:
+    
+    # Open the file then decide whether to PUT or Stream Multi-part
+    with open(full_file_name, "rb") as in_file:
         start = time.time()
-        
-        # MP
-        upload_manager.upload_file(
-            namespace,
-            bucket_name,
-            object_name,
-            full_file_name,
-            metadata=object_metadata,
-            part_size=DEFAULT_PART_SIZE,
-            progress_callback=progress_callback)
-        end = time.time()
-        if verbose:
-            print(f"{os.getpid()} Finished MP uploading {full_file_name} Time: {(end - start):.2f}s Size: {os.stat(full_file_name).st_size} bytes")
-    else:
-        with open(full_file_name, "rb") as in_file:
+        if os.stat(full_file_name).st_size > mp_threshold:
+            # MP
+            upload_manager.upload_stream(
+                namespace_name=namespace,
+                bucket_name=bucket_name,
+                object_name=object_name,
+                stream_ref=in_file,
+                metadata=object_metadata,
+                part_size=DEFAULT_PART_SIZE,
+                progress_callback=progress_callback)
+            end = time.time()
+            if verbose:
+                print(f"{os.getpid()} Finished MP uploading {full_file_name} Time: {(end - start):.2f}s Size: {os.stat(full_file_name).st_size} bytes")
+        else:
             # Reg put  
-            start = time.time()
             object_storage_client.put_object(
                 namespace_name=namespace, 
                 bucket_name=bucket_name, 
