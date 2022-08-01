@@ -11,11 +11,15 @@ For each share
 '''
 
 import time
+import datetime
 import oci
 import os
 import subprocess
-
+import multiprocessing
 import argparse
+
+# Backup Type
+backup_type = None
 
 # The Compartment OCID for FSS shares
 fss_compartment_ocid = None
@@ -25,6 +29,9 @@ oss_compartment_ocid = None
 
 # RCLONE Remote (Create via OS)
 rclone_remote = None
+
+# Number of cores (like nproc)
+core_count = multiprocessing.cpu_count()
 
 def runRCLONE(rclone_remote, local_folder ):
     # Use subprocess
@@ -45,6 +52,7 @@ parser.add_argument("-fc", "--fsscompartment", help="FSS Compartment OCID", requ
 parser.add_argument("-oc", "--osscompartment", help="OSS Backup Comaprtment OCID", required=True)
 parser.add_argument("-r", "--remote", help="Named rclone remote for that user.  ie oci:", required=True)
 parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name (if not default)")
+parser.add_argument("-ty", "--type", type=str, help="Type: daily(def), weekly, monthly", default="daily")
 args = parser.parse_args()
 
 # Process arguments
@@ -65,6 +73,10 @@ if args.osscompartment:
 if args.remote:
     rclone_remote = args.remote
 
+# Type (daily, weekly, monthly)
+if args.type:
+    backup_type = args.type
+
 # Define OSS client and Namespace
 if profile:
     config = oci.config.from_file(profile_name=profile)
@@ -79,7 +91,8 @@ file_storage_client = oci.file_storage.FileStorageClient(config)
 namespace_name = object_storage_client.get_namespace().data
 
 # Define Snapshot name for FSS
-snapshot_name = f"FSS-Backup-{time.time()}"
+#snapshot_name = f"FSS-Backup-{time.time()}"
+snapshot_name = f"FSS-{backup_type}-Backup-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}"
 
 start = time.time()
 # Main loop - list File Shares
@@ -89,7 +102,7 @@ shares = file_storage_client.list_file_systems(compartment_id=fss_compartment_oc
                                                 lifecycle_state="ACTIVE")
 for share in shares.data:
     print(f"Share name: {share.display_name}")
-    backup_bucket_name = share.display_name + "_backup"
+    backup_bucket_name = share.display_name.strip("/") + "_backup"
     
     # Check bucket status - create if necessary
     try:
@@ -111,13 +124,17 @@ for share in shares.data:
                                             name=snapshot_name)
                                         )
     # Now call out to OS to mount RO
+    subprocess.run(["mount",f"10.0.1.83:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
 # root
 
     # Call out to rclone it
     remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
-    subprocess.run(["rclone","copy","--progress","--transfers=2","/Users/argregor/windstream-oss",f"{remote_path}"],shell=False, check=True)
+    if verbose:
+      print(f"Calling rclone with rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+    subprocess.run(["rclone","copy","--progress",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
 
     # Unmount it
+    subprocess.run(["umount","/mnt/temp-backup"],shell=False, check=True)
 # root
 
 end = time.time()
