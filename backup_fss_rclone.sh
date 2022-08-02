@@ -16,7 +16,7 @@ set -e
 
 function parse_options(){
     while true; do
-	if [ $# -lt 2 ]; then
+	if [ $# -lt 3 ]; then
             echo "Script requires FFS_mount_point. Refer usage below."
             echo 'Usage: sh backup_fss_rclone.sh <FSS_mount_point> <rclone remote> <Object_Bucket_name>'
             exit
