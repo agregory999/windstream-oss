@@ -134,6 +134,7 @@ for share in shares.data:
                                                 )
         else:
             print(f"Dry Run: Would have created bucket {backup_bucket_name} in compartment {oss_compartment_ocid}")                                        
+        
     # FSS Snapshot (for clean backup)
     file_storage_client.create_snapshot(create_snapshot_details=oci.file_storage.models.CreateSnapshotDetails(
                                             file_system_id=share.id,
@@ -155,6 +156,12 @@ for share in shares.data:
         subprocess.run(["rclone","copy","--progress",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
     else:
         print(f"Dry Run: rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+
+    # Save Permissions
+    #getfacl -R . > snapshot_name /tmp/.permissions.facl
+    subprocess.run(["getfacl","-R",f"/mnt/temp-backup/.snapshot/{snapshot_name}",">",f"/tmp/.{snapshot_name}-permissions.facl"],shell=False, check=True)
+    subprocess.run(["rclone","copy","--progress",f"/tmp/.{snapshot_name}-permissions.facl",f"{remote_path}"],shell=False, check=True)
+
     # Unmount it
     if not dry_run:
         if verbose:
