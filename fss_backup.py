@@ -36,6 +36,9 @@ rclone_remote = None
 # Mount Point IP
 mount_IP = None
 
+
+fss_avail_domain = "UWQV:US-ASHBURN-AD-1"
+
 # Number of cores (like nproc)
 core_count = multiprocessing.cpu_count()
 
@@ -57,6 +60,7 @@ parser.add_argument("-v", "--verbose", help="increase output verbosity", action=
 parser.add_argument("-fc", "--fsscompartment", help="FSS Compartment OCID", required=True)
 parser.add_argument("-oc", "--osscompartment", help="OSS Backup Comaprtment OCID", required=True)
 parser.add_argument("-r", "--remote", help="Named rclone remote for that user.  ie oci:", required=True)
+parser.add_argument("-ad", "--availabilitydomain", help="AD for FSS usage.  Such as dDzb:US-ASHBURN-AD-1", required=True)
 parser.add_argument("-m", "--mountip", help="Mount Point IP to use.", required=True)
 parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name (if not default)")
 parser.add_argument("-ty", "--type", type=str, help="Type: daily(def), weekly, monthly", default="daily")
@@ -90,6 +94,10 @@ if args.remote:
 if args.type:
     backup_type = args.type
 
+# Availability Domain
+if args.availabilitydomain:
+    fss_avail_domain = args.availabilitydomain
+
 # Define OSS client and Namespace
 if profile:
     config = oci.config.from_file(profile_name=profile)
@@ -111,7 +119,7 @@ start = time.time()
 # Main loop - list File Shares
 
 shares = file_storage_client.list_file_systems(compartment_id=fss_compartment_ocid, 
-                                                availability_domain="UWQV:US-ASHBURN-AD-3",
+                                                availability_domain=fss_avail_domain,
                                                 lifecycle_state="ACTIVE")
 for share in shares.data:
     print(f"Share name: {share.display_name}")
@@ -158,7 +166,6 @@ for share in shares.data:
         print(f"Dry Run: rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
     # Save Permissions
-    #getfacl -R . > snapshot_name /tmp/.permissions.facl
     try:
       with open(f"/tmp/.{snapshot_name}-permissions.facl", "w") as outfile:
         subprocess.run(["getfacl","-p","-R",f"/mnt/temp-backup/.snapshot/{snapshot_name}"],shell=False, check=True, stdout=outfile, stderr=subprocess.STDOUT)
