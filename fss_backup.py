@@ -21,6 +21,9 @@ import argparse
 # Backup Type
 backup_type = None
 
+# Dry Run
+dry_run = False
+
 # The Compartment OCID for FSS shares
 fss_compartment_ocid = None
 
@@ -29,6 +32,9 @@ oss_compartment_ocid = None
 
 # RCLONE Remote (Create via OS)
 rclone_remote = None
+
+# Mount Point IP
+mount_IP = None
 
 # Number of cores (like nproc)
 core_count = multiprocessing.cpu_count()
@@ -51,12 +57,15 @@ parser.add_argument("-v", "--verbose", help="increase output verbosity", action=
 parser.add_argument("-fc", "--fsscompartment", help="FSS Compartment OCID", required=True)
 parser.add_argument("-oc", "--osscompartment", help="OSS Backup Comaprtment OCID", required=True)
 parser.add_argument("-r", "--remote", help="Named rclone remote for that user.  ie oci:", required=True)
+parser.add_argument("-m", "--mountip", help="Mount Point IP to use.", required=True)
 parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name (if not default)")
 parser.add_argument("-ty", "--type", type=str, help="Type: daily(def), weekly, monthly", default="daily")
+parser.add_argument("--dryrun", help="Dry Run - print what it would do", action="store_true")
 args = parser.parse_args()
 
 # Process arguments
 verbose = args.verbose
+dry_run = args.dryrun
 
 # Default(None) or named
 profile = args.profile
@@ -68,6 +77,10 @@ if args.fsscompartment:
 # OSS Compartment OCID
 if args.osscompartment:
     oss_compartment_ocid = args.osscompartment
+
+# Mount IP
+if args.mountip:
+    mount_IP = args.mountip
 
 # RCLONE Remote
 if args.remote:
@@ -92,7 +105,7 @@ namespace_name = object_storage_client.get_namespace().data
 
 # Define Snapshot name for FSS
 #snapshot_name = f"FSS-Backup-{time.time()}"
-snapshot_name = f"FSS-{backup_type}-Backup-{datetime.now().strftime("%Y-%m-%d-%H:%M:%S")}"
+snapshot_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
 
 start = time.time()
 # Main loop - list File Shares
@@ -110,33 +123,44 @@ for share in shares.data:
         print("Bucket found")
     except oci.exceptions.ServiceError:
         print(f"Bucket not found - creating")
-        object_storage_client.create_bucket(namespace_name=namespace_name,
-                                            create_bucket_details = oci.object_storage.models.CreateBucketDetails(
-                                                name=backup_bucket_name,
-                                                compartment_id=oss_compartment_ocid,
-                                                storage_tier="Standard",
-                                                object_events_enabled=True,
-                                                auto_tiering="InfrequentAccess")
-                                            )
+        if not dry_run:
+            object_storage_client.create_bucket(namespace_name=namespace_name,
+                                                create_bucket_details = oci.object_storage.models.CreateBucketDetails(
+                                                    name=backup_bucket_name,
+                                                    compartment_id=oss_compartment_ocid,
+                                                    storage_tier="Standard",
+                                                    object_events_enabled=True,
+                                                    auto_tiering="InfrequentAccess")
+                                                )
+        else:
+            print(f"Dry Run: Would have created bucket {backup_bucket_name} in compartment {oss_compartment_ocid}")                                        
     # FSS Snapshot (for clean backup)
     file_storage_client.create_snapshot(create_snapshot_details=oci.file_storage.models.CreateSnapshotDetails(
                                             file_system_id=share.id,
                                             name=snapshot_name)
                                         )
     # Now call out to OS to mount RO
-    subprocess.run(["mount",f"10.0.1.83:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
-# root
+    if not dry_run:
+        if verbose:
+            print(f"OS: mount {mount_IP}:{share.display_name} /mnt/temp-backup")
+        subprocess.run(["mount",f"{mount_IP}:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
+    else:
+        print(f"Dry Run: mount {mount_IP}:{share.display_name} /mnt/temp-backup")
 
     # Call out to rclone it
     remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
-    if verbose:
-      print(f"Calling rclone with rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
-    subprocess.run(["rclone","copy","--progress",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
-
+    if not dry_run:
+        if verbose:
+            print(f"Calling rclone with rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+        subprocess.run(["rclone","copy","--progress",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+    else:
+        print(f"Dry Run: rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
     # Unmount it
-    subprocess.run(["umount","/mnt/temp-backup"],shell=False, check=True)
-# root
-
+    if not dry_run:
+        if verbose:
+            print(f"OS: umount /mnt/temp-backup")
+        subprocess.run(["umount","/mnt/temp-backup"],shell=False, check=True)
+    else:
+        print(f"Dry Run: umount /mnt/temp-backup")
 end = time.time()
-if verbose:
-    print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
+print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
