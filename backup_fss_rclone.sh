@@ -18,7 +18,7 @@ function parse_options(){
     while true; do
 	if [ $# -lt 2 ]; then
             echo "Script requires FFS_mount_point. Refer usage below."
-            echo 'Usage: sh backup_fss_rclone.sh <FSS_mount_point> <Object_Bucket_name>'
+            echo 'Usage: sh backup_fss_rclone.sh <FSS_mount_point> <rclone remote> <Object_Bucket_name>'
             exit
         fi
         case "$1" in
@@ -45,7 +45,8 @@ function main() {
     # Set the variables
     fss_mount_point=$1
     snapshot_name="snap_`date '+%Y%b%d'`"
-    oci_object_src_bucket=$2
+    RCLONE_REMOTE=$2
+    oci_object_src_bucket=$3
 
     #Print the variables
     echo
@@ -53,6 +54,7 @@ function main() {
     echo " FSS_mount_point		= $fss_mount_point"
     echo " snapshot_name 		= $snapshot_name"
     echo " oci_object_src_bucket	= $oci_object_src_bucket"
+    echo " RCLONE_REMOTE	= $RCLONE_REMOTE"
     echo
 
     # Create a FSS snapshot
