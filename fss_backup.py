@@ -159,9 +159,12 @@ for share in shares.data:
 
     # Save Permissions
     #getfacl -R . > snapshot_name /tmp/.permissions.facl
-    subprocess.run(["getfacl","-R",f"/mnt/temp-backup/.snapshot/{snapshot_name}",">",f"/tmp/.{snapshot_name}-permissions.facl"],shell=False, check=True)
-    subprocess.run(["rclone","copy","--progress",f"/tmp/.{snapshot_name}-permissions.facl",f"{remote_path}"],shell=False, check=True)
-
+    try:
+      with open(f"/tmp/.{snapshot_name}-permissions.facl", "w") as outfile:
+        subprocess.run(["getfacl","-p","-R",f"/mnt/temp-backup/.snapshot/{snapshot_name}"],shell=False, check=True, stdout=outfile, stderr=subprocess.STDOUT)
+      subprocess.run(["rclone","copy","--progress",f"/tmp/.{snapshot_name}-permissions.facl",f"{remote_path}"],shell=False, check=True)
+    except subprocess.CalledProcessError as exc:
+      print("Status : FAIL", exc.returncode, exc.output)
     # Unmount it
     if not dry_run:
         if verbose:
