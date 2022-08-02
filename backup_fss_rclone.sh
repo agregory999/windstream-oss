@@ -82,8 +82,8 @@ function main() {
     #time rclone mkdir myobjectstorage:$oci_object_src_bucket/$snapshot_name
 
     # Copy
-    echo "time rclone copy --progress --transfers=`nproc` $fss_mount_point/.snapshot/$snapshot_name ${RCLONE_REMOTE}:/${oci_object_src_bucket}-snapshots/$snapshot_name"
-    time rclone copy --progress --transfers=`nproc` $fss_mount_point/.snapshot/$snapshot_name ${RCLONE_REMOTE}:/${oci_object_src_bucket}-snapshots/$snapshot_name/
+    echo "time rclone copy --progress --transfers=`nproc` $fss_mount_point/.snapshot/$snapshot_name ${RCLONE_REMOTE}:/${oci_object_src_bucket}/$snapshot_name"
+    time rclone copy --progress --transfers=`nproc` $fss_mount_point/.snapshot/$snapshot_name ${RCLONE_REMOTE}:/${oci_object_src_bucket}/$snapshot_name/
 
     # Sync - with versioning - just the share - no snap
     #echo "time rclone sync --progress --transfers=`nproc` $fss_mount_point ${RCLONE_REMOTE}:/${oci_object_src_bucket}-versioned --exclude .snapshot/**"
