@@ -182,7 +182,7 @@ for share in shares.data:
         print(f"Dry Run: umount /mnt/temp-backup")
 
     # Delete Snapshot (not necessary)
-    file_storage_client.delete_snapshot(snapshot_id=snapshot.id)
+    file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
 
 end = time.time()
 print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
