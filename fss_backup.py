@@ -136,7 +136,7 @@ start = time.time()
 # Else get all shares
 if fss_ocid:
     shares = file_storage_client.list_file_systems(compartment_id=fss_compartment_ocid, 
-                                                    id=fss_ocid
+                                                    id=fss_ocid,
                                                     availability_domain=fss_avail_domain,
                                                     lifecycle_state="ACTIVE")
 else:
