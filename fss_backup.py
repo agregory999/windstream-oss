@@ -178,11 +178,11 @@ for share in shares.data:
     # Call out to rclone it
     if not dry_run:
         if verbose:
-            print(f"Calling rclone with rclone sync --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+            print(f"Calling rclone with rclone sync --progress --link --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
         
-        subprocess.run(["rclone","sync","--progress",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+        subprocess.run(["rclone","sync","--progress","--link",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
     else:
-        print(f"Dry Run: rclone sync --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+        print(f"Dry Run: rclone sync --progress --link --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
     # Save Permissions
     # Creates a file in the object folder with all permissions - this can be used to restore ACL later
