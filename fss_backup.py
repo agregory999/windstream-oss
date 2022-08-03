@@ -135,7 +135,7 @@ for share in shares.data:
     try:
         object_storage_client.get_bucket(namespace_name=namespace_name,bucket_name=backup_bucket_name)
         if verbose:
-            print("Bucket {backup_bucket_name} found")
+            print(f"Bucket {backup_bucket_name} found")
     except oci.exceptions.ServiceError:
         if verbose:
             print(f"Bucket {backup_bucket_name} not found - creating")
