@@ -186,10 +186,10 @@ for share in shares.data:
     # Now call out to OS to mount RO
     if not dry_run:
         if verbose:
-            print(f"OS: mount {mount_IP}:{share.display_name} /mnt/temp-backup")
-        subprocess.run(["mount",f"{mount_IP}:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
+            print(f"OS: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup")
+        subprocess.run(["mount","-r",f"{mount_IP}:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
     else:
-        print(f"Dry Run: mount {mount_IP}:{share.display_name} /mnt/temp-backup")
+        print(f"Dry Run: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup")
 
     # Define remote path on OSS
     remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
