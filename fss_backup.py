@@ -112,8 +112,14 @@ file_storage_client = oci.file_storage.FileStorageClient(config)
 namespace_name = object_storage_client.get_namespace().data
 
 # Define Snapshot name for FSS
-#snapshot_name = f"FSS-Backup-{time.time()}"
-snapshot_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+# If daily, use the same name so that rclone sync will use versioning - ie incremental
+# Weekly or monthly will create a new snapshot folder and thus it will be new
+if type == "daily":
+    snapshot_name = f"FSS-{backup_type}-Backup"
+    print("Using daily incremental backup")
+else:
+    snapshot_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    print(f"Using weekly/monthly incremental backup called: {snapshot_name}")
 
 start = time.time()
 # Main loop - list File Shares
@@ -156,22 +162,34 @@ for share in shares.data:
     else:
         print(f"Dry Run: mount {mount_IP}:{share.display_name} /mnt/temp-backup")
 
-    # Call out to rclone it
+    # Define remote path on OSS
     remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
+    if verbose:
+        print(f"Using Remote Path (rclone_remote:bucket/snapshot): {rclone_remote}{backup_bucket_name}/{snapshot_name}")
+
+    # Call out to rclone it
     if not dry_run:
         if verbose:
-            print(f"Calling rclone with rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
-        subprocess.run(["rclone","copy","--progress",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+            print(f"Calling rclone with rclone sync --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+        
+        subprocess.run(["rclone","sync","--progress",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
     else:
-        print(f"Dry Run: rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+        print(f"Dry Run: rclone sync --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
     # Save Permissions
-    try:
-      with open(f"/tmp/.{snapshot_name}-permissions.facl", "w") as outfile:
-        subprocess.run(["getfacl","-p","-R",f"/mnt/temp-backup/.snapshot/{snapshot_name}"],shell=False, check=True, stdout=outfile, stderr=subprocess.STDOUT)
-      subprocess.run(["rclone","copy","--progress",f"/tmp/.{snapshot_name}-permissions.facl",f"{remote_path}"],shell=False, check=True)
-    except subprocess.CalledProcessError as exc:
-      print("Status : FAIL", exc.returncode, exc.output)
+    # Creates a file in the object folder with all permissions - this can be used to restore ACL later
+    if not dry_run:
+        try:
+            if verbose:
+                print(f"Creating permissions file: /tmp/.{snapshot_name}-permissions.facl")
+            with open(f"/tmp/.{snapshot_name}-permissions.facl", "w") as outfile:
+                subprocess.run(["getfacl","-p","-R",f"/mnt/temp-backup/.snapshot/{snapshot_name}"],shell=False, check=True, stdout=outfile, stderr=subprocess.STDOUT)
+            subprocess.run(["rclone","copy","--progress",f"/tmp/.{snapshot_name}-permissions.facl",f"{remote_path}"],shell=False, check=True)
+        except subprocess.CalledProcessError as exc:
+            print("Status : FAIL", exc.returncode, exc.output)
+    else:
+        print(f"Dry Run: Create permissions file /tmp/.{snapshot_name}-permissions.facl")
+        print(f"Dry Run: rclone copy permissions file to {remote_path}")
 
     # Unmount it
     if not dry_run:
@@ -182,7 +200,12 @@ for share in shares.data:
         print(f"Dry Run: umount /mnt/temp-backup")
 
     # Delete Snapshot (not necessary)
-    file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
+    if not dry_run:
+        if verbose:
+            print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}")
+        file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
+    else:
+        print(f"Dry Run: rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
 end = time.time()
 print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
