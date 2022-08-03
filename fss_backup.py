@@ -134,9 +134,11 @@ for share in shares.data:
     # Check bucket status - create if necessary
     try:
         object_storage_client.get_bucket(namespace_name=namespace_name,bucket_name=backup_bucket_name)
-        print("Bucket found")
+        if verbose:
+            print("Bucket {backup_bucket_name} found")
     except oci.exceptions.ServiceError:
-        print(f"Bucket not found - creating")
+        if verbose:
+            print(f"Bucket {backup_bucket_name} not found - creating")
         if not dry_run:
             object_storage_client.create_bucket(namespace_name=namespace_name,
                                                 create_bucket_details = oci.object_storage.models.CreateBucketDetails(
@@ -150,10 +152,16 @@ for share in shares.data:
             print(f"Dry Run: Would have created bucket {backup_bucket_name} in compartment {oss_compartment_ocid}")                                        
         
     # FSS Snapshot (for clean backup)
-    snapshot = file_storage_client.create_snapshot(create_snapshot_details=oci.file_storage.models.CreateSnapshotDetails(
+    if not dry_run:
+        if verbose:
+            print(f"Creating FSS Snapshot: {snapshot_name} via API")
+        snapshot = file_storage_client.create_snapshot(create_snapshot_details=oci.file_storage.models.CreateSnapshotDetails(
                                             file_system_id=share.id,
                                             name=snapshot_name)
                                         )
+    else:
+        print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API")
+        
     # Now call out to OS to mount RO
     if not dry_run:
         if verbose:
