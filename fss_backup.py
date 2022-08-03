@@ -146,7 +146,7 @@ for share in shares.data:
                                                     compartment_id=oss_compartment_ocid,
                                                     storage_tier="Standard",
                                                     object_events_enabled=True,
-                                                    auto_tiering="InfrequentAccess")
+                                                    versioning="Enabled")
                                                 )
         else:
             print(f"Dry Run: Would have created bucket {backup_bucket_name} in compartment {oss_compartment_ocid}")                                        
