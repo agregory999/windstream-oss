@@ -114,7 +114,7 @@ namespace_name = object_storage_client.get_namespace().data
 # Define Snapshot name for FSS
 # If daily, use the same name so that rclone sync will use versioning - ie incremental
 # Weekly or monthly will create a new snapshot folder and thus it will be new
-if type == "daily":
+if backup_type == "daily":
     snapshot_name = f"FSS-{backup_type}-Backup"
     print("Using daily incremental backup")
 else:
