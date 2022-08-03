@@ -161,7 +161,7 @@ for share in shares.data:
                                         )
     else:
         print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API")
-        
+
     # Now call out to OS to mount RO
     if not dry_run:
         if verbose:
@@ -213,7 +213,7 @@ for share in shares.data:
             print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}")
         file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
     else:
-        print(f"Dry Run: rclone copy --progress --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+        print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
 
 end = time.time()
 print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
