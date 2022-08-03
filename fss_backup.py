@@ -27,6 +27,9 @@ dry_run = False
 # The Compartment OCID for FSS shares
 fss_compartment_ocid = None
 
+# The Compartment OCID for specific FSS share (if set)
+fss_ocid = None
+
 # The OSS Bucket Compartment OCID where we will upload
 oss_compartment_ocid = None
 
@@ -57,6 +60,7 @@ def createBackupBucket(object_storage_client, share_name):
 # Parse Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
+parser.add_argument("-fs", "--fssocid", help="FSS Compartment OCID of doing a single FS")
 parser.add_argument("-fc", "--fsscompartment", help="FSS Compartment OCID", required=True)
 parser.add_argument("-oc", "--osscompartment", help="OSS Backup Comaprtment OCID", required=True)
 parser.add_argument("-r", "--remote", help="Named rclone remote for that user.  ie oci:", required=True)
@@ -77,6 +81,10 @@ profile = args.profile
 # FSS Compartment OCID
 if args.fsscompartment:
     fss_compartment_ocid = args.fsscompartment
+
+# FSS Single OCID
+if args.fssocid:
+    fss_ocid = args.fssocid
 
 # OSS Compartment OCID
 if args.osscompartment:
@@ -124,9 +132,22 @@ else:
 start = time.time()
 # Main loop - list File Shares
 
-shares = file_storage_client.list_file_systems(compartment_id=fss_compartment_ocid, 
-                                                availability_domain=fss_avail_domain,
-                                                lifecycle_state="ACTIVE")
+# For listing, if the fss_ocid is set to a single FS, only do that in the filter
+# Else get all shares
+if fss_ocid:
+    shares = file_storage_client.list_file_systems(compartment_id=fss_compartment_ocid, 
+                                                    id=fss_ocid
+                                                    availability_domain=fss_avail_domain,
+                                                    lifecycle_state="ACTIVE")
+else:
+    shares = file_storage_client.list_file_systems(compartment_id=fss_compartment_ocid, 
+                                                    availability_domain=fss_avail_domain,
+                                                    lifecycle_state="ACTIVE")
+
+# At this point iterate the list (even if single)
+if verbose:
+    print(f"Iterating filesystems.  Count: {len(shares.data)}")
+
 for share in shares.data:
     print(f"Share name: {share.display_name}")
     backup_bucket_name = share.display_name.strip("/") + "_backup"
