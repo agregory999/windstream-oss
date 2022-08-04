@@ -207,7 +207,7 @@ for share in shares.data:
     # Call out to rclone it
     if not dry_run:
         if verbose:
-            print(f"Calling rclone with rclone sync -v --stats 24h --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+            print(f"Calling rclone with rclone sync -v --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
         
         # Try / catch so as to not kill the process
         try:
