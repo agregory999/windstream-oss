@@ -220,7 +220,7 @@ for share in shares.data:
             if verbose:
                 print(f"Creating permissions file: /tmp/.{snapshot_name}-permissions.facl")
             with open(f"/tmp/.{snapshot_name}-permissions.facl", "w") as outfile:
-                subprocess.run(["getfacl","-p","-R",f"/mnt/temp-backup/.snapshot/{snapshot_name}"],shell=False, check=True, stdout=outfile, stderr=subprocess.STDOUT)
+                subprocess.run(["getfacl","-p","-R",f"/mnt/temp-backup"],shell=False, check=True, stdout=outfile, stderr=subprocess.STDOUT)
             subprocess.run(["rclone","copy","--progress",f"/tmp/.{snapshot_name}-permissions.facl",f"{remote_path}"],shell=False, check=True)
         except subprocess.CalledProcessError as exc:
             print("Status : FAIL", exc.returncode, exc.output)
