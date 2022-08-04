@@ -212,9 +212,9 @@ for share in shares.data:
         # Try / catch so as to not kill the process
         try:
             if verbose:
-                subprocess.run(["rclone","sync","-v", "--metadata", "--max-backlog", "999999", "--links",f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True, capture_output=True)
+                subprocess.run(["rclone","sync","-v", "--metadata", "--max-backlog", "999999", "--links",f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             else:
-                subprocess.run(["rclone","sync", "--stats", "5m", "--metadata", "--max-backlog", "999999", "--links",f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True, capture_output=True)
+                subprocess.run(["rclone","sync", "--stats", "5m", "--metadata", "--max-backlog", "999999", "--links",f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         except subprocess.CalledProcessError:
             print(f"RCLONE ERROR: Continue processing")
