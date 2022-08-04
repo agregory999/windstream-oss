@@ -176,10 +176,14 @@ for share in shares.data:
     if not dry_run:
         if verbose:
             print(f"Creating FSS Snapshot: {snapshot_name} via API")
+        snapstart = time.time()
         snapshot = file_storage_client.create_snapshot(create_snapshot_details=oci.file_storage.models.CreateSnapshotDetails(
                                             file_system_id=share.id,
                                             name=snapshot_name)
                                         )
+        snapend = time.time()
+        if verbose:
+            print(f"FSS Snapshot time(ms): {(snapend - snapstart):.2f}s OCID: {snapshot.data.id}")
     else:
         print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API")
 
@@ -199,11 +203,15 @@ for share in shares.data:
     # Call out to rclone it
     if not dry_run:
         if verbose:
-            print(f"Calling rclone with rclone sync --progress --links --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+            print(f"Calling rclone with rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
         
-        subprocess.run(["rclone","sync","--progress","--links",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+        # Try / catch so as to not kill the process
+        try:
+            subprocess.run(["rclone","sync","--progress","--metadata", "--max-backlog", "999999", "--links",f"--transfers={core_count}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+        except subprocess.CalledProcessError:
+            print(f"RCLONE ERROR: Continue processing")
     else:
-        print(f"Dry Run: rclone sync --progress --links --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+        print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
     # Save Permissions
     # Creates a file in the object folder with all permissions - this can be used to restore ACL later
