@@ -213,6 +213,18 @@ for share in shares.data:
     else:
         print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
+    # Delete Snapshot (not necessary)
+    # If snapshot is deleted, the .snapshot will not be included in the permissions file. 
+    if not dry_run:
+        if verbose:
+            print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}")
+        try:
+            file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
+        except:
+            print(f"Deletion of FSS Snapshot failed.  Please record OCID: {snapshot.data.id} and delete manually.")    
+    else:
+        print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
+
     # Save Permissions
     # Creates a file in the object folder with all permissions - this can be used to restore ACL later
     if not dry_run:
@@ -228,21 +240,13 @@ for share in shares.data:
         print(f"Dry Run: Create permissions file /tmp/.{snapshot_name}-permissions.facl")
         print(f"Dry Run: rclone copy permissions file to {remote_path}")
 
-    # Unmount it
+    # Unmount File System
     if not dry_run:
         if verbose:
             print(f"OS: umount /mnt/temp-backup")
         subprocess.run(["umount","/mnt/temp-backup"],shell=False, check=True)
     else:
         print(f"Dry Run: umount /mnt/temp-backup")
-
-    # Delete Snapshot (not necessary)
-    if not dry_run:
-        if verbose:
-            print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}")
-        file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
-    else:
-        print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
 
 end = time.time()
 print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
