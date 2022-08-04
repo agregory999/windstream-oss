@@ -228,10 +228,10 @@ for share in shares.data:
     # Unmount Snapshot File System
     if not dry_run:
         if verbose:
-            print(f"OS: umount /mnt/temp-backup/{snapshot_name}")
-        subprocess.run(["umount",f"/mnt/temp-backup/{snapshot_name}"],shell=False, check=True)
+            print(f"OS: umount /mnt/temp-backup/.snapshot/{snapshot_name}")
+        subprocess.run(["umount",f"/mnt/temp-backup/.snapshot/{snapshot_name}"],shell=False, check=True)
     else:
-        print(f"Dry Run: umount /mnt/temp-backup/{snapshot_name}")
+        print(f"Dry Run: umount /mnt/temp-backup/.snapshot/{snapshot_name}")
 
     # Save Permissions
     # Creates a file in the object folder with all permissions - this can be used to restore ACL later
