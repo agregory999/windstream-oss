@@ -229,13 +229,14 @@ for share in shares.data:
     else:
         print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
 
-    # Sleep for a couple seconds to allow snap to be gone - don't want .snapshot in permissions
-    if verbose:
-         print("Sleeping 5 sec to allow FSS Snap to go away")
-    time.sleep(5)
-
     # Save Permissions - if configured
     if not skip_perms:
+
+        # Sleep for a couple seconds to allow snap to be gone - don't want .snapshot in permissions
+        if verbose:
+            print("Sleeping 5 sec to allow FSS Snap to go away")
+        time.sleep(5)
+
         # Creates a file in the object folder with all permissions - this can be used to restore ACL later
         if not dry_run:
             try:
@@ -250,8 +251,9 @@ for share in shares.data:
             print(f"Dry Run: Create permissions file /tmp/.{snapshot_name}-permissions.facl")
             print(f"Dry Run: rclone copy permissions file to {remote_path}")
     else:
-        print("Skipping Permission Generation")
-        
+        if verbose:
+            print("Skipping Permission Generation")
+
     # Unmount File System
     if not dry_run:
         if verbose:
