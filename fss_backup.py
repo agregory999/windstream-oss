@@ -225,13 +225,10 @@ for share in shares.data:
     else:
         print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
 
-    # Unmount Snapshot File System
-    if not dry_run:
-        if verbose:
-            print(f"OS: umount /mnt/temp-backup/.snapshot/{snapshot_name}")
-        subprocess.run(["umount",f"/mnt/temp-backup/.snapshot/{snapshot_name}"],shell=False, check=True)
-    else:
-        print(f"Dry Run: umount /mnt/temp-backup/.snapshot/{snapshot_name}")
+    # Sleep for a couple seconds to allow snap to be gone - don't want .snapshot in permissions
+    if verbose:
+         print("Sleeping 5 sec to allow FSS Snap to go away")
+    time.sleep(5)
 
     # Save Permissions
     # Creates a file in the object folder with all permissions - this can be used to restore ACL later
