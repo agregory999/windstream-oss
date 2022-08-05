@@ -2,13 +2,43 @@
 
 Backup is accomplished using the Python script fss_backup.py
 
-The script attempts to be self-documing, ie run it with no arguments for help:
+The script attempts to be self-documing, ie run it with no arguments for basic help or `-h` for actual help:
 
 ```bash
 ./fss_backup.py 
 usage: fss_backup.py [-h] [-v] [-fs FSSOCID] -fc FSSCOMPARTMENT -oc OSSCOMPARTMENT -r REMOTE -ad
                      AVAILABILITYDOMAIN -m MOUNTIP [-pr PROFILE] [-ty TYPE] [--dryrun] [--nopermsfile]
 fss_backup.py: error: the following arguments are required: -fc/--fsscompartment, -oc/--osscompartment, -r/--remote, -ad/--availabilitydomain, -m/--mountip 
+```
+or
+```
+/fss_backup.py -h
+usage: fss_backup.py [-h] [-v] [-fs FSSOCID] -fc FSSCOMPARTMENT -oc
+                     OSSCOMPARTMENT -r REMOTE -ad AVAILABILITYDOMAIN -m
+                     MOUNTIP [-pr PROFILE] [-ty TYPE] [--dryrun]
+                     [--nopermsfile]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
+  -fs FSSOCID, --fssocid FSSOCID
+                        FSS Compartment OCID of doing a single FS
+  -fc FSSCOMPARTMENT, --fsscompartment FSSCOMPARTMENT
+                        FSS Compartment OCID
+  -oc OSSCOMPARTMENT, --osscompartment OSSCOMPARTMENT
+                        OSS Backup Comaprtment OCID
+  -r REMOTE, --remote REMOTE
+                        Named rclone remote for that user. ie oci:
+  -ad AVAILABILITYDOMAIN, --availabilitydomain AVAILABILITYDOMAIN
+                        AD for FSS usage. Such as dDzb:US-ASHBURN-AD-1
+  -m MOUNTIP, --mountip MOUNTIP
+                        Mount Point IP to use.
+  -pr PROFILE, --profile PROFILE
+                        OCI Profile name (if not default)
+  -ty TYPE, --type TYPE
+                        Type: daily(def), weekly, monthly
+  --dryrun              Dry Run - print what it would do
+  --nopermsfile         Skip Permissions File Generation (for >50k or so files - recommended)
 ```
 
 The script using rclone internally, which is fully documented at rclone.org
