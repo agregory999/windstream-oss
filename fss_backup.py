@@ -211,7 +211,7 @@ for share in shares.data:
         
         # Try / catch so as to not kill the process
         try:
-            completed = subprocess.run(["rclone","sync", "-v", "--metadata", "--max-backlog", "999999", "--links", "--s3-disable-checksum", "--s3-chunk-size=16M", "--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+            completed = subprocess.run(["rclone","sync", "-v", "--metadata", "--max-backlog", "999999", "--links", "--s3-disable-checksum", "--s3-chunk-size=16M", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
             print (f"RCLONE output: {completed.stdout}")
         except subprocess.CalledProcessError:
             print(f"RCLONE ERROR: Continue processing")
