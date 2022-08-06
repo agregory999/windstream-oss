@@ -125,13 +125,8 @@ namespace_name = object_storage_client.get_namespace().data
 
 # Define Snapshot name for FSS
 # If daily, use the same name so that rclone sync will use versioning - ie incremental
-# Weekly or monthly will create a new snapshot folder and thus it will be new
-if backup_type == "daily":
-    snapshot_name = f"FSS-{backup_type}-Backup"
-    print("Using daily incremental backup")
-else:
-    snapshot_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-    print(f"Using weekly/monthly incremental backup called: {snapshot_name}")
+# Weekly or monthly will copy to new folder
+snapshot_name = f"FSS-{backup_type}-Backup"
 
 start = time.time()
 # Main loop - list File Shares
@@ -201,6 +196,9 @@ for share in shares.data:
 
     # Define remote path on OSS
     remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
+    additional_snapshot_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    additional_remote_path = f"{rclone_remote}{backup_bucket_name}/{additional_snapshot_name}"
+    
     if verbose:
         print(f"Using Remote Path (rclone_remote:bucket/snapshot): {rclone_remote}{backup_bucket_name}/{snapshot_name}")
 
@@ -215,9 +213,23 @@ for share in shares.data:
             print (f"RCLONE output: {completed.stdout}")
         except subprocess.CalledProcessError:
             print(f"RCLONE ERROR: Continue processing")
+
+        if type in ['weekly','monthly']:
+            if verbose:
+                print(f"Creating additional {type} backup called {additional_snapshot_name}. Implemented as rclone copy")
+                print(f"Calling rclone with rclone sync -v --transfers={core_count} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
+            # Try / catch so as to not kill the process
+            try:
+                completed = subprocess.run(["rclone","copy", "-v", f"--transfers={core_count}",f"--checkers={core_count*2}",f"{remote_path}", f"{additional_remote_path}"],shell=False, check=True)
+                print (f"RCLONE output: {completed.stdout}")
+            except subprocess.CalledProcessError:
+                print(f"RCLONE ERROR: Continue processing")
+
     else:
         print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
-
+        if type in ['weekly','monthly']:
+            print(f"Dry Run: rclone copy -v {remote_path} {additional_remote_path}")
+        
     # Delete Snapshot (not necessary)
     # If snapshot is deleted, the .snapshot will not be included in the permissions file. 
     if not dry_run:
