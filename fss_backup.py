@@ -153,7 +153,7 @@ if verbose:
     print(f"Iterating filesystems.  Count: {len(shares.data)}")
 
 for share in shares.data:
-    print(f"Share name: {share.display_name}")
+    print(f"Share name: {share.display_name} Size: {round(share.metered_bytes/(1024*1024*1024), 2)} GB")
     backup_bucket_name = share.display_name.strip("/") + "_backup"
     
     # Check bucket status - create if necessary
@@ -207,11 +207,11 @@ for share in shares.data:
     # Call out to rclone it
     if not dry_run:
         if verbose:
-            print(f"Calling rclone with rclone sync -v --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
+            print(f"Calling rclone with rclone sync -v --metadata --max-backlog 999999 --links --s3-disable-checksum --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
         
         # Try / catch so as to not kill the process
         try:
-            completed = subprocess.run(["rclone","sync", "-v", "--metadata", "--max-backlog", "999999", "--links",f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+            completed = subprocess.run(["rclone","sync", "-v", "--metadata", "--max-backlog", "999999", "--links", "--s3-disable-checksum", "--s3-chunk-size=16M", "--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
             print (f"RCLONE output: {completed.stdout}")
         except subprocess.CalledProcessError:
             print(f"RCLONE ERROR: Continue processing")
