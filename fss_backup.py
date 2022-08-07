@@ -249,14 +249,14 @@ for share in shares.data:
                 # Direct Copy
                 if verbose:
                     print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone Direct Copy from FSS (full)')
-                    print(f"Calling rclone with rclone sync -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
+                    print(f"Calling rclone with rclone sync -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {additional_remote_path}", flush=True)
                 
                 # Try / catch so as to not kill the process
                 try:
                     # Still do integrity check (md5sum)
                     completed = subprocess.run(["rclone","copy", f'{"-vvv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
                                                 "--s3-chunk-size=16M", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
-                                                f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+                                                f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{additional_remote_path}"],shell=False, check=True)
                     print (f"RCLONE output: {completed.stdout}")
                 except subprocess.CalledProcessError:
                     print(f"RCLONE ERROR: Continue processing")
