@@ -125,8 +125,8 @@ namespace_name = object_storage_client.get_namespace().data
 
 # Define Snapshot name for FSS
 # If daily, use the same name so that rclone sync will use versioning - ie incremental
-# Weekly or monthly will copy to new folder
-snapshot_name = f"FSS-{backup_type}-Backup"
+# Weekly or monthly will copy to new folder later
+snapshot_name = f"FSS-daily-Backup"
 
 start = time.time()
 # Main loop - list File Shares
