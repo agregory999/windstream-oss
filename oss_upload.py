@@ -59,12 +59,12 @@ def stat_to_json(fp: str) -> dict:
     s_obj = os.stat(fp)
     return {k: str(getattr(s_obj, k)) for k in dir(s_obj) if k.startswith('st_')}
 
-def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace, bucket_name, verbose: bool):
+def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace, bucket_name, verbose: bool, config):
 
     # Initialize (don't like this)
-    config = oci.config.from_file()
+    #config = oci.config.from_file()
     object_storage_client = oci.object_storage.ObjectStorageClient(config)
-    upload_manager = UploadManager(object_storage_client, allow_parallel_uploads=True)
+    upload_manager = UploadManager(object_storage_client, allow_parallel_uploads=True,)
     namespace = object_storage_client.get_namespace().data
 
     full_file_name = path + "/" + filename
@@ -73,6 +73,7 @@ def uploadOSSProcess(path: str, filename: str, base_object_name: str, namespace,
     object_name = str(filename) if str(base_object_name) == "" else str(base_object_name) + "/" + str(filename)
     object_metadata = stat_to_json(full_file_name)
     object_metadata["mask"] = str(oct(os.stat(full_file_name).st_mode & 0o777))
+    object_metadata["owner_name"] = Path(full_file_name).owner()
 
     if verbose:
         print(f"{os.getpid()} File Path: {full_file_name} Object Name: {object_name} File Size: {os.stat(full_file_name).st_size} Namespace: {namespace}")
@@ -116,6 +117,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--parallelism", type=int, help="parallel processes allowed")
     parser.add_argument("-f", "--folder", type=Path, help="path to local folder to upload", required=True)
     parser.add_argument("-th", "--threshold", type=int, help="threshold in bytes for multi-part upload")
+    parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name")
     args = parser.parse_args()
 
 
@@ -123,7 +125,9 @@ if __name__ == '__main__':
     verbose = args.verbose
     add_enclosing_folder = args.write
 
-    
+    # Default(None) or named
+    profile = args.profile
+
     # Bucket Name
     if args.bucket:
         bucket_name = args.bucket
@@ -146,7 +150,12 @@ if __name__ == '__main__':
 
     print (f"**** Start - using {folder} with parallelism of {concurrency} and File threshold: {mp_threshold}.  Bucket name={bucket_name} ***")
 
-    config = oci.config.from_file()
+    # Define OSS client and Namespace
+    if profile:
+        config = oci.config.from_file(profile_name=profile)
+    else:
+        config = oci.config.from_file()
+
     object_storage_client = oci.object_storage.ObjectStorageClient(config)
     namespace = object_storage_client.get_namespace().data
  
@@ -177,7 +186,7 @@ if __name__ == '__main__':
             # results is a Future List, but should be empty
             # pseudocode here:
             # For each file in the list, call the uploadOSS function, but use the folder name for each file.  Also the namespace and verbosity are passed into it.
-            results = executor.map(uploadOSSProcess,repeat(root),files,repeat(base_object_name),repeat(namespace),repeat(bucket_name),repeat(verbose))
+            results = executor.map(uploadOSSProcess,repeat(root),files,repeat(base_object_name),repeat(namespace),repeat(bucket_name),repeat(verbose),repeat(config))
     for result in results:
         # This is only to make the program wait for all of the files to be processed.
         if verbose:
