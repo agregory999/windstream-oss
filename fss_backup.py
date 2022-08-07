@@ -216,7 +216,7 @@ for share in shares.data:
 
         if backup_type in ['weekly','monthly']:
             if verbose:
-                print(f"Creating additional {type} backup called {additional_snapshot_name}. Implemented as rclone copy")
+                print(f"Creating additional {backup_type} backup called {additional_snapshot_name}. Implemented as rclone copy")
                 print(f"Calling rclone with rclone sync -v --transfers={core_count} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
             # Try / catch so as to not kill the process
             try:
