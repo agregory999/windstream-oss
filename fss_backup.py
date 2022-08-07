@@ -219,10 +219,10 @@ for share in shares.data:
         if backup_type in ['weekly','monthly']:
             if verbose:
                 print(f"Creating additional {backup_type} backup called {additional_snapshot_name}. Implemented as rclone server side copy")
-                print(f"Calling rclone with rclone copy -v --s3-disable-checksum --transfers={core_count} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
+                print(f"Calling rclone with rclone copy -v --size-only --transfers={core_count} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
             # Try / catch so as to not kill the process
             try:
-                completed = subprocess.run(["rclone","copy", f'{"-vvvvv" if verbose else "-v"}', "--s3-disable-checksum", f"--transfers={core_count}",f"--checkers={core_count*2}",f"{remote_path}", f"{additional_remote_path}"],shell=False, check=True)
+                completed = subprocess.run(["rclone","copy", f'{"-vvvvv" if verbose else "-v"}', "--size-only", f"--transfers={core_count}",f"--checkers={core_count*2}",f"{remote_path}", f"{additional_remote_path}"],shell=False, check=True)
                 print (f"RCLONE output: {completed.stdout}")
             except subprocess.CalledProcessError:
                 print(f"RCLONE ERROR: Continue processing")
