@@ -19,11 +19,22 @@ import multiprocessing
 import argparse
 import sys
 
+def extract_bytes(fs):
+    try:
+        # Also convert to int since update_time will be string.  When comparing
+        # strings, "10" is smaller than "2".
+        return int(fs.metered_bytes)
+    except KeyError:
+        return 0
+
 # Backup Type
 backup_type = None
 
 # Dry Run
 dry_run = False
+
+# Sort Smallest to largest
+sort_bytes = False
 
 # The Compartment OCID for FSS shares
 fss_compartment_ocid = None
@@ -76,7 +87,8 @@ parser.add_argument("-m", "--mountip", help="Mount Point IP to use.", required=T
 parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name (if not default)")
 parser.add_argument("-ty", "--type", type=str, help="Type: daily(def), weekly, monthly", default="daily")
 parser.add_argument("--dryrun", help="Dry Run - print what it would do", action="store_true")
-parser.add_argument("--serversidecopy", help="For weekly/monthly only - copies directly from latest daily backup, not source FSS", action="store_true")
+parser.add_argument("-ssc","--serversidecopy", help="For weekly/monthly only - copies directly from latest daily backup, not source FSS", action="store_true")
+parser.add_argument("-s","--sortbytes", help="Sort by byte size of FSS, smallest to largest (smaller FS backed up first", action="store_true")
 parser.add_argument("-t","--threshold", help="GB threshold - do not back up share if more than this", type=int)
 args = parser.parse_args()
 
@@ -84,6 +96,7 @@ args = parser.parse_args()
 verbose = args.verbose
 dry_run = args.dryrun
 server_side_copy = args.serversidecopy
+sort_bytes = args.sortbytes
 
 # Default(None) or named
 profile = args.profile
@@ -166,6 +179,12 @@ else:
 # At this point iterate the list (even if single)
 if verbose:
     print(f'{f"Using {fss_ocid} in" if fss_ocid else "Iterating filesystems in"} Compartment: {fss_compartment_ocid}.  Count: {len(shares.data)}')
+
+
+# Sort by smallest to largest
+if sort_bytes:
+    print(f"Sorting FSS List shallest to largest")
+    shares.data.sort(key=extract_bytes)
 
 for share in shares.data:
     print(f"Share name: {share.display_name} Size: {round(share.metered_bytes/(1024*1024*1024), 2)} GB")
@@ -280,8 +299,7 @@ for share in shares.data:
             else:
                 print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
         
-    # Delete Snapshot (not necessary)
-    # If snapshot is deleted, the .snapshot will not be included in the permissions file. 
+    # Delete Snapshot - no need to keep at this point
     if not dry_run:
         if verbose:
             print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}")
@@ -302,3 +320,5 @@ for share in shares.data:
 
 end = time.time()
 print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
+
+
