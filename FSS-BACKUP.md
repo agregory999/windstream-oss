@@ -6,17 +6,15 @@ The script attempts to be self-documing, ie run it with no arguments for basic h
 
 ```bash
 ./fss_backup.py 
-usage: fss_backup.py [-h] [-v] [-fs FSSOCID] -fc FSSCOMPARTMENT -oc OSSCOMPARTMENT -r REMOTE -ad
-                     AVAILABILITYDOMAIN -m MOUNTIP [-pr PROFILE] [-ty TYPE] [--dryrun] [--nopermsfile]
-fss_backup.py: error: the following arguments are required: -fc/--fsscompartment, -oc/--osscompartment, -r/--remote, -ad/--availabilitydomain, -m/--mountip 
+usage: fss_backup.py [-h] [-v] [-fs FSSOCID] -fc FSSCOMPARTMENT -oc OSSCOMPARTMENT -r REMOTE -ad AVAILABILITYDOMAIN -m MOUNTIP [-pr PROFILE]
+                     [-ty TYPE] [--dryrun] [--serversidecopy] [-t THRESHOLD]
+fss_backup.py: error: the following arguments are required: -fc/--fsscompartment, -oc/--osscompartment, -r/--remote, -ad/--availabilitydomain, -m/--mountip
 ```
 or
 ```
 /fss_backup.py -h
-usage: fss_backup.py [-h] [-v] [-fs FSSOCID] -fc FSSCOMPARTMENT -oc
-                     OSSCOMPARTMENT -r REMOTE -ad AVAILABILITYDOMAIN -m
-                     MOUNTIP [-pr PROFILE] [-ty TYPE] [--dryrun]
-                     [--nopermsfile]
+usage: fss_backup.py [-h] [-v] [-fs FSSOCID] -fc FSSCOMPARTMENT -oc OSSCOMPARTMENT -r REMOTE -ad AVAILABILITYDOMAIN -m MOUNTIP [-pr PROFILE]
+                     [-ty TYPE] [--dryrun] [--serversidecopy] [-t THRESHOLD]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -38,7 +36,9 @@ optional arguments:
   -ty TYPE, --type TYPE
                         Type: daily(def), weekly, monthly
   --dryrun              Dry Run - print what it would do
-  --nopermsfile         Skip Permissions File Generation (for >50k or so files - recommended)
+  --serversidecopy      For weekly/monthly only - copies directly from latest daily backup, not source FSS
+  -t THRESHOLD, --threshold THRESHOLD
+                        GB threshold - do not back up share if more than this
 ```
 
 The script using rclone internally, which is fully documented at rclone.org
@@ -62,9 +62,8 @@ It's amazing.  All of the logic around "to copy or not copy" is there.  This scr
 List FSS - for each
 - Create FSS Snapshot based on type of backup
 - Mount it read only to be safe
-- Rclone the contents of the share out to OSS
+- Rclone the contents of the share out to OSS with metadata (inlcudes ACL and owner/group info)
 - Delete FSS Snapshot (clean up)
-- *Optionally generate an ACL File that can be used to restore permissions as they were
 - Unmount the share (clean up)
 
 End Loop
@@ -129,6 +128,13 @@ These OCIDs can be used later on, if you want to run a single File System.
 
 There are only 5 required arguments, the rest are optional. See above for help.  The most basic command is below, this will use a type of daily (incremental).  Given the compartment for FSS, the script will iterate and perform the backups on ALL File Systems in the compartment.
 
+Required:
+- -fc Compartment OCID where Filesystems live
+- -oc Compartment OCID where object bucket backups will go
+- -r RCLONE remote - must be defined by OS user (rclone config show).  And include colon (ie oci-oss:)
+- -ad Availability domain of FSS (see example)
+- -m Mount Point IP - will be used as temporary read only mount
+
 ```
 root prompt:>> ./fss_backup.py -fc ocid1.compartment.oc1..fss.compartment.ocid -oc ocid1.compartment.oc1..yyy.oss.bucket.compartment.ocid -r oci-oss: -m 10.0.1.83 -ad UWQV:US-ASHBURN-AD-3
 ```
@@ -145,6 +151,38 @@ Example with weekly backup of single File System, verbose mode:
 ```bash
 prompt:>> ./fss_backup.py -fc ocid1.compartment.oc1..xxxxxxfss.comp.ocid -oc ocid1.compartment.oc1..xxxxxoss.comp.ocid -r oci-oss:  -m 10.0.1.83 -ad UWQV:US-ASHBURN-AD-3 -fs ocid1.filesystem.oc1.iad.xxxxxfss.filesystem.ocid --type weekly -v
 ```
+
+## Optional Parameters
+
+This section covers the options that can be added to the script
+
+### Server Side copy
+For weekly or monthly backups you can specify `--serversidecopy` with the command and RCLONE will not copy the backup from the FSS Source.  Rather, it will copy the daily backup (latest version of each file) directly using OSS to OSS copy - in theory, this saves transfer time.  It also does a copy with no integrity checking, as that has already been done as part of the daily incremental, which has always just occurred.
+
+Example:
+```bash
+prompt:>>  ./fss_backup.py -fc ocid1.compartment.oc1..fss.comp.ocid -oc ocid1.compartment.oc1..oss.comp.ocid -r oci-oss:  -m 10.0.1.83 -ad UWQV:US-ASHBURN-AD-3  --type weekly --serversidecopy
+
+...output...
+2022/08/08 15:25:45 INFO  : 10000files/file-1015: Copied (server-side copy)
+...output...
+```
+
+## Threshold
+
+You can specify a threshold in GB.  If specified, the script will skip FSS Shares where the metered-bytes (size) is larger than the value.  For example, adding `-t 20` will only backup shares less than 20GB.
+
+Example:
+```bash
+prompt:>> ./fss_backup.py -fc ocid1.compartment.oc1..fss.comp.ocid -oc ocid1.compartment.oc1..oss.comp.ocid -r oci-oss:  -m 10.0.1.83 -ad UWQV:US-ASHBURN-AD-3  --type daily -t 4
+...output...
+File System is 6.49 GB.  Threshold is 4 GB.  Skipping
+...output...
+```
+
+## Verbose
+
+Add `-v` to have the script do verbose output.  This also sends RCLONE a verbose instruction to pring debugging when it runs.  NOT recommended for cron.
 
 ## Crontab
 
@@ -163,7 +201,7 @@ echo "*********************************"
 date
 
 # File system1
-/root/windstream-oss/fss_backup.py -fc <FSS Compartment OCID> -oc <OSS Bucket OCID> -r oci-oss: -m <FSS Mount IP> -ad UWQV:US-ASHBURN-AD-3 --type weekly -v --nopermsfile
+/root/windstream-oss/fss_backup.py -fc <FSS Compartment OCID> -oc <OSS Bucket OCID> -r oci-oss: -m <FSS Mount IP> -ad UWQV:US-ASHBURN-AD-3 --type weekly -v
 
 # Filesystem2
 #./fss_backup.py <bunch of params>
