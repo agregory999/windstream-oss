@@ -39,9 +39,6 @@ rclone_remote = None
 # Mount Point IP
 mount_IP = None
 
-# Skip Permissions file generation (for large FS)
-skip_perms = False
-
 # Server-side copy (for weekly or monthly only)
 # If set, uses rclone to avoid local copy, and uses last FSS-daily-Backup copy already on object store 
 server_side_copy = None
@@ -75,14 +72,12 @@ parser.add_argument("-m", "--mountip", help="Mount Point IP to use.", required=T
 parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name (if not default)")
 parser.add_argument("-ty", "--type", type=str, help="Type: daily(def), weekly, monthly", default="daily")
 parser.add_argument("--dryrun", help="Dry Run - print what it would do", action="store_true")
-parser.add_argument("--nopermsfile", help="Skip Permissions File Generation", action="store_true")
 parser.add_argument("--serversidecopy", help="For weekly/monthly only - copies directly from latest daily backup, not source FSS", action="store_true")
 args = parser.parse_args()
 
 # Process arguments
 verbose = args.verbose
 dry_run = args.dryrun
-skip_perms = args.nopermsfile
 server_side_copy = args.serversidecopy
 
 # Default(None) or named
@@ -279,31 +274,6 @@ for share in shares.data:
             print(f"Deletion of FSS Snapshot failed.  Please record OCID: {snapshot.data.id} and delete manually.")    
     else:
         print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
-
-    # Save Permissions - if configured
-    if not skip_perms:
-
-        # Sleep for a couple seconds to allow snap to be gone - don't want .snapshot in permissions
-        if verbose:
-            print("Sleeping 5 sec to allow FSS Snap to go away")
-        time.sleep(5)
-
-        # Creates a file in the object folder with all permissions - this can be used to restore ACL later
-        if not dry_run:
-            try:
-                if verbose:
-                    print(f"Creating permissions file: /tmp/.{snapshot_name}-permissions.facl")
-                with open(f"/tmp/.{snapshot_name}-permissions.facl", "w") as outfile:
-                    subprocess.run(["getfacl","-p","-R",f"/mnt/temp-backup"],shell=False, check=True, stdout=outfile, stderr=subprocess.STDOUT)
-                subprocess.run(["rclone","copy","--progress",f"/tmp/.{snapshot_name}-permissions.facl",f"{remote_path}"],shell=False, check=True)
-            except subprocess.CalledProcessError as exc:
-                print("Status : FAIL", exc.returncode, exc.output)
-        else:
-            print(f"Dry Run: Create permissions file /tmp/.{snapshot_name}-permissions.facl")
-            print(f"Dry Run: rclone copy permissions file to {remote_path}")
-    else:
-        if verbose:
-            print("Skipping Permission Generation")
 
     # Unmount File System
     if not dry_run:
