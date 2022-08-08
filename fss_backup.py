@@ -17,6 +17,7 @@ import os
 import subprocess
 import multiprocessing
 import argparse
+import sys
 
 # Backup Type
 backup_type = None
@@ -38,6 +39,9 @@ rclone_remote = None
 
 # Mount Point IP
 mount_IP = None
+
+# Threashold GB (Don't back up if > this)
+threshold_gb = sys.maxsize
 
 # Server-side copy (for weekly or monthly only)
 # If set, uses rclone to avoid local copy, and uses last FSS-daily-Backup copy already on object store 
@@ -73,6 +77,7 @@ parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name (if not
 parser.add_argument("-ty", "--type", type=str, help="Type: daily(def), weekly, monthly", default="daily")
 parser.add_argument("--dryrun", help="Dry Run - print what it would do", action="store_true")
 parser.add_argument("--serversidecopy", help="For weekly/monthly only - copies directly from latest daily backup, not source FSS", action="store_true")
+parser.add_argument("-t","--threshold", help="GB threshold - do not back up share if more than this", type=int)
 args = parser.parse_args()
 
 # Process arguments
@@ -111,6 +116,10 @@ if args.type:
 if args.availabilitydomain:
     fss_avail_domain = args.availabilitydomain
 
+# FSS Threshold
+if args.threshold:
+    threshold_gb = args.threshold
+
 # Define OSS client and Namespace
 if profile:
     config = oci.config.from_file(profile_name=profile)
@@ -135,6 +144,10 @@ if backup_type in ['weekly','monthly']:
 else:
     print(f'Performing Daily Incremental Backup')
 
+# Print threshold if set
+if threshold_gb < sys.maxsize:
+    # This means it was set to anything
+    print(f"GB Threshold set to {threshold_gb} GB - will skip any FS larger than this")
 start = time.time()
 # Main loop - list File Shares
 
@@ -158,6 +171,10 @@ for share in shares.data:
     print(f"Share name: {share.display_name} Size: {round(share.metered_bytes/(1024*1024*1024), 2)} GB")
     backup_bucket_name = share.display_name.strip("/") + "_backup"
     
+    if (share.metered_bytes > (threshold_gb * 1024 * 1024 * 1024)):
+        print(f"File System is {round(share.metered_bytes/(1024*1024*1024), 2)} GB.  Threshold is {threshold_gb} GB.  Skipping")
+        continue
+
     # Check bucket status - create if necessary
     try:
         object_storage_client.get_bucket(namespace_name=namespace_name,bucket_name=backup_bucket_name)
