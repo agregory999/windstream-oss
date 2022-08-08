@@ -152,9 +152,14 @@ Example with weekly backup of single File System, verbose mode:
 prompt:>> ./fss_backup.py -fc ocid1.compartment.oc1..xxxxxxfss.comp.ocid -oc ocid1.compartment.oc1..xxxxxoss.comp.ocid -r oci-oss:  -m 10.0.1.83 -ad UWQV:US-ASHBURN-AD-3 -fs ocid1.filesystem.oc1.iad.xxxxxfss.filesystem.ocid --type weekly -v
 ```
 
-## Optional Parameters
+## Optional Parameters 
 
-This section covers the options that can be added to the script
+
+This section covers the options that can be added to the script.
+
+### Dry Run
+
+Add `--dry-run` to print what the script will do, without actually doing anything.
 
 ### Server Side copy
 For weekly or monthly backups you can specify `--serversidecopy` with the command and RCLONE will not copy the backup from the FSS Source.  Rather, it will copy the daily backup (latest version of each file) directly using OSS to OSS copy - in theory, this saves transfer time.  It also does a copy with no integrity checking, as that has already been done as part of the daily incremental, which has always just occurred.
@@ -168,7 +173,7 @@ prompt:>>  ./fss_backup.py -fc ocid1.compartment.oc1..fss.comp.ocid -oc ocid1.co
 ...output...
 ```
 
-## Threshold
+### Threshold
 
 You can specify a threshold in GB.  If specified, the script will skip FSS Shares where the metered-bytes (size) is larger than the value.  For example, adding `-t 20` will only backup shares less than 20GB.
 
@@ -180,7 +185,11 @@ File System is 6.49 GB.  Threshold is 4 GB.  Skipping
 ...output...
 ```
 
-## Verbose
+### Sort Smallest to Largest
+
+Add `-s` or `--sortbytes` to the command to sort the file systems that will be backed up by size, smallest to largest.  This way the smaller ones will get done first.  Combine with `-t X` as above to be able to back up smallest first and stop at a specific size.  Perhaps take largest shares individually or separate otherwise.
+
+### Verbose
 
 Add `-v` to have the script do verbose output.  This also sends RCLONE a verbose instruction to pring debugging when it runs.  NOT recommended for cron.
 
