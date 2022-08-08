@@ -297,7 +297,7 @@ for share in shares.data:
         else:
             if type in ['weekly','monthly']:
                 if server_side_copy:
-                    print(f"Dry Run: rclone copy -v {remote_path} {additional_remote_path}")
+                    print(f"Dry Run: rclone copy -v {remote_path} {additional_remote_path}", flush=True)
                 else:
                     print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
