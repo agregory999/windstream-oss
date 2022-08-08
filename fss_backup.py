@@ -153,14 +153,14 @@ snapshot_name = f"FSS-daily-Backup"
 
 # Explain what we are doing
 if backup_type in ['weekly','monthly']:
-    print(f'Performing Daily Incremental Backup AND {backup_type} using {"Server-Side Copy" if server_side_copy else "Rclone Copy"} method')
+    print(f'Performing Daily Incremental Backup AND {backup_type} using {"Server-Side Copy" if server_side_copy else "Rclone Copy"} method', flush=True)
 else:
-    print(f'Performing Daily Incremental Backup')
+    print(f'Performing Daily Incremental Backup', flush=True)
 
 # Print threshold if set
 if threshold_gb < sys.maxsize:
     # This means it was set to anything
-    print(f"GB Threshold set to {threshold_gb} GB - will skip any FS larger than this")
+    print(f"GB Threshold set to {threshold_gb} GB - will skip any FS larger than this", flush=True)
 start = time.time()
 # Main loop - list File Shares
 
@@ -178,30 +178,30 @@ else:
 
 # At this point iterate the list (even if single)
 if verbose:
-    print(f'{f"Using {fss_ocid} in" if fss_ocid else "Iterating filesystems in"} Compartment: {fss_compartment_ocid}.  Count: {len(shares.data)}')
+    print(f'{f"Using {fss_ocid} in" if fss_ocid else "Iterating filesystems in"} Compartment: {fss_compartment_ocid}.  Count: {len(shares.data)}', flush=True)
 
 
 # Sort by smallest to largest
 if sort_bytes:
-    print(f"Sorting FSS List shallest to largest")
+    print(f"Sorting FSS List smallest to largest", flush=True)
     shares.data.sort(key=extract_bytes)
 
 for share in shares.data:
-    print(f"Share name: {share.display_name} Size: {round(share.metered_bytes/(1024*1024*1024), 2)} GB")
+    print(f"Share name: {share.display_name} Size: {round(share.metered_bytes/(1024*1024*1024), 2)} GB", flush=True)
     backup_bucket_name = share.display_name.strip("/") + "_backup"
     
     if (share.metered_bytes > (threshold_gb * 1024 * 1024 * 1024)):
-        print(f"File System is {round(share.metered_bytes/(1024*1024*1024), 2)} GB.  Threshold is {threshold_gb} GB.  Skipping")
+        print(f"File System is {round(share.metered_bytes/(1024*1024*1024), 2)} GB.  Threshold is {threshold_gb} GB.  Skipping", flush=True)
         continue
 
     # Check bucket status - create if necessary
     try:
         object_storage_client.get_bucket(namespace_name=namespace_name,bucket_name=backup_bucket_name)
         if verbose:
-            print(f"Bucket {backup_bucket_name} found")
+            print(f"Bucket {backup_bucket_name} found", flush=True)
     except oci.exceptions.ServiceError:
         if verbose:
-            print(f"Bucket {backup_bucket_name} not found - creating")
+            print(f"Bucket {backup_bucket_name} not found - creating", flush=True)
         if not dry_run:
             object_storage_client.create_bucket(namespace_name=namespace_name,
                                                 create_bucket_details = oci.object_storage.models.CreateBucketDetails(
@@ -212,7 +212,7 @@ for share in shares.data:
                                                     versioning="Enabled")
                                                 )
         else:
-            print(f"Dry Run: Would have created bucket {backup_bucket_name} in compartment {oss_compartment_ocid}")                                        
+            print(f"Dry Run: Would have created bucket {backup_bucket_name} in compartment {oss_compartment_ocid}", flush=True)                                        
         
     # FSS Snapshot (for clean backup)
     if not dry_run:
@@ -225,98 +225,103 @@ for share in shares.data:
                                         )
         snapend = time.time()
         if verbose:
-            print(f"FSS Snapshot time(ms): {(snapend - snapstart):.2f}s OCID: {snapshot.data.id}")
+            print(f"FSS Snapshot time(ms): {(snapend - snapstart):.2f}s OCID: {snapshot.data.id}", flush=True)
     else:
-        print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API")
+        print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API", flush=True)
 
-    # Now call out to OS to mount RO
-    if not dry_run:
-        if verbose:
-            print(f"OS: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup")
-        subprocess.run(["mount","-r",f"{mount_IP}:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
-    else:
-        print(f"Dry Run: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup")
+    # Try mount and rclone, it not, clean up snapshot
+    try:
+        # Now call out to OS to mount RO
+        if not dry_run:
+            if verbose:
+                print(f"OS: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup", flush=True)
+            subprocess.run(["mount","-r",f"{mount_IP}:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
+        else:
+            print(f"Dry Run: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup")
 
-    # Define remote path on OSS
-    remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
-    additional_copy_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-    additional_remote_path = f"{rclone_remote}{backup_bucket_name}/{additional_copy_name}"
-    
-    if verbose:
-        print(f"Using Remote Path (rclone_remote:bucket/snapshot): {rclone_remote}{backup_bucket_name}/{snapshot_name}")
-
-    # Call out to rclone it
-    # Additional flags to consider
-    # --s3-disable-checksum  only for large objects, avoid md5sum which is slow
-    if not dry_run:
-        if verbose:
-            print(f"Calling rclone with rclone sync -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
+        # Define remote path on OSS
+        remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
+        additional_copy_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        additional_remote_path = f"{rclone_remote}{backup_bucket_name}/{additional_copy_name}"
         
-        # Try / catch so as to not kill the process
-        try:
-            completed = subprocess.run(["rclone","sync", f'{"-vvv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
-                                        "--s3-chunk-size=16M", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
-                                        f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
-            print (f"RCLONE output: {completed.stdout}")
-        except subprocess.CalledProcessError:
-            print(f"RCLONE ERROR: Continue processing")
+        if verbose:
+            print(f"Using Remote Path (rclone_remote:bucket/snapshot): {rclone_remote}{backup_bucket_name}/{snapshot_name}", flush=True)
 
-        # Additional Backup if weekly or monthly selected.  Options are Direct Copy or Server Side Copy
-        if backup_type in ['weekly','monthly']:
-            if server_side_copy:
-                if verbose:
-                    print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone server side copy')
-                    print(f"Calling rclone with rclone copy -v --no-check-dest--transfers={core_count*2} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
-                # Try / catch so as to not kill the process
-                try:
-                    # 2x transfers since server-side
-                    # Also, since integrity check, don't check dest
-                    completed = subprocess.run(["rclone","copy", f'{"-vvv" if verbose else "-v"}', "--no-check-dest", f"--transfers={core_count*2}",f"--checkers={core_count*2}",
-                                                f"{remote_path}", f"{additional_remote_path}"],shell=False, check=True)
-                    print (f"RCLONE output: {completed.stdout}")
-                except subprocess.CalledProcessError:
-                    print(f"RCLONE ERROR: Continue processing")
-            else:
-                # Direct Copy
-                if verbose:
-                    print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone Direct Copy from FSS (full)')
-                    print(f"Calling rclone with rclone sync -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {additional_remote_path}", flush=True)
-                
-                # Try / catch so as to not kill the process
-                try:
-                    # Still do integrity check (md5sum)
-                    completed = subprocess.run(["rclone","copy", f'{"-vvv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
-                                                "--s3-chunk-size=16M", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
-                                                f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{additional_remote_path}"],shell=False, check=True)
-                    print (f"RCLONE output: {completed.stdout}")
-                except subprocess.CalledProcessError:
-                    print(f"RCLONE ERROR: Continue processing")
+        # Call out to rclone it
+        # Additional flags to consider
+        # --s3-disable-checksum  only for large objects, avoid md5sum which is slow
+        if not dry_run:
+            if verbose:
+                print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
+            
+            # Try / catch so as to not kill the process
+            try:
+                completed = subprocess.run(["rclone","sync", f'{"-vvv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
+                                            "--s3-chunk-size=16M", "--stats", "5m", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
+                                            f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
+                print (f"RCLONE output: {completed.stdout}", flush=True)
+            except subprocess.CalledProcessError:
+                print(f"RCLONE ERROR: Continue processing", flush=True)
 
-    else:
-        if type in ['weekly','monthly']:
-            if server_side_copy:
-                print(f"Dry Run: rclone copy -v {remote_path} {additional_remote_path}")
-            else:
-                print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
-        
+            # Additional Backup if weekly or monthly selected.  Options are Direct Copy or Server Side Copy
+            if backup_type in ['weekly','monthly']:
+                if server_side_copy:
+                    if verbose:
+                        print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone server side copy')
+                        print(f"Calling rclone with rclone copy --stats 5m -v --no-check-dest--transfers={core_count*2} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
+                    # Try / catch so as to not kill the process
+                    try:
+                        # 2x transfers since server-side
+                        # Also, since integrity check, don't check dest
+                        completed = subprocess.run(["rclone","copy", "--stats", "5m", f'{"-vv" if verbose else "-v"}', "--no-check-dest", f"--transfers={core_count*2}",f"--checkers={core_count*2}",
+                                                    f"{remote_path}", f"{additional_remote_path}"],shell=False, check=True)
+                        print (f"RCLONE output: {completed.stdout}")
+                    except subprocess.CalledProcessError:
+                        print(f"RCLONE ERROR: Continue processing")
+                else:
+                    # Direct Copy
+                    if verbose:
+                        print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone Direct Copy from FSS (full)')
+                        print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {additional_remote_path}", flush=True)
+                    
+                    # Try / catch so as to not kill the process
+                    try:
+                        # Still do integrity check (md5sum)
+                        completed = subprocess.run(["rclone","copy", "--stats", "5m", f'{"-vv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
+                                                    "--s3-chunk-size=16M", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
+                                                    f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{additional_remote_path}"],shell=False, check=True)
+                        print (f"RCLONE output: {completed.stdout}")
+                    except subprocess.CalledProcessError:
+                        print(f"RCLONE ERROR: Continue processing")
+
+        else:
+            if type in ['weekly','monthly']:
+                if server_side_copy:
+                    print(f"Dry Run: rclone copy -v {remote_path} {additional_remote_path}")
+                else:
+                    print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
+
+        # Unmount File System
+        if not dry_run:
+            if verbose:
+                print(f"OS: umount /mnt/temp-backup", flush=True)
+            subprocess.run(["umount","/mnt/temp-backup"],shell=False, check=True)
+        else:
+            print(f"Dry Run: umount /mnt/temp-backup", flush=True)
+
+    except subprocess.CalledProcessError:
+        print(f"MOUNT ERROR: Continue processing to remove snapshot", flush=True)
+            
     # Delete Snapshot - no need to keep at this point
     if not dry_run:
         if verbose:
-            print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}")
+            print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}", flush=True)
         try:
             file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
         except:
-            print(f"Deletion of FSS Snapshot failed.  Please record OCID: {snapshot.data.id} and delete manually.")    
+            print(f"Deletion of FSS Snapshot failed.  Please record OCID: {snapshot.data.id} and delete manually.", flush=True)    
     else:
         print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
-
-    # Unmount File System
-    if not dry_run:
-        if verbose:
-            print(f"OS: umount /mnt/temp-backup")
-        subprocess.run(["umount","/mnt/temp-backup"],shell=False, check=True)
-    else:
-        print(f"Dry Run: umount /mnt/temp-backup")
 
 end = time.time()
 print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
