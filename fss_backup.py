@@ -391,6 +391,18 @@ for share in shares.data:
         else:
             print(f"Dry Run: umount {temp_mount}", flush=True)
 
+        # Delete Snapshot - no need to keep at this point
+        if not dry_run:
+            if verbose:
+                print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}", flush=True)
+            try:
+                file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
+            except:
+                print(f"Deletion of FSS Snapshot failed.  Please record OCID: {snapshot.data.id} and delete manually.", flush=True)    
+        else:
+            print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
+
+
     except subprocess.CalledProcessError as exc:
         print(f"ERROR: RClone or Mount failed. Continue processing to remove snapshot", flush=True)
         if verbose:
@@ -404,17 +416,6 @@ for share in shares.data:
         if verbose:
             print(exc)
              
-    # Delete Snapshot - no need to keep at this point
-    if not dry_run:
-        if verbose:
-            print(f"Deleting Snapshot from FSS. Name: {snapshot.data.name} OCID:{snapshot.data.id}", flush=True)
-        try:
-            file_storage_client.delete_snapshot(snapshot_id=snapshot.data.id)
-        except:
-            print(f"Deletion of FSS Snapshot failed.  Please record OCID: {snapshot.data.id} and delete manually.", flush=True)    
-    else:
-        print(f"Dry Run: Delete Snapshot from FSS: {snapshot_name}")
-
 end = time.time()
 print(f"Finished | Time taken: {(end - start):.2f}s",flush=True)  
 
