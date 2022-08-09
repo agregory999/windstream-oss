@@ -108,7 +108,6 @@ def ensureTemporaryMount():
             os.makedirs(temp_mount)
         except:
             # Raise because if we cannot, we should kill the script immediately
-            print(f"ERROR: Cannot create {temp_mount}")
             raise
       
 def ensureBackupBucket(object_storage_client, bucket):
@@ -146,8 +145,6 @@ def getSuitableExport(file_storage_client, virtual_network_client, mt_ocid, fs_o
             if verbose:
                 print(f"MT {mount_ip.data.ip_address} Found {export.id} with path {export.path}",flush=True)
             return f"{mount_ip.data.ip_address}:{export.path}"
-        if verbose:
-            print(f"No Match for {export.file_system_id}")
     # Nothing suitable
     raise ValueError("Cannot find any matching exports")
 
@@ -346,7 +343,7 @@ for share in shares.data:
             
             # Try / catch so as to not kill the process
             try:
-                completed = subprocess.run(["rclone","sync", f'{"-vvv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
+                completed = subprocess.run(["rclone","sync", f'{"-vv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
                                             "--s3-chunk-size=16M", "--stats", "5m", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
                                             f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
                 print (f"RCLONE output: {completed.stdout}", flush=True)
