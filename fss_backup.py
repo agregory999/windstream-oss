@@ -302,9 +302,13 @@ for share in shares.data:
     try:
         # Call the helper to get export path and mount
         # Get export path
-        mount_path = getSuitableExport(file_storage_client, virtual_network_client, mt_ocid=mt_ocid, fs_ocid=share.id)
-        if verbose:
-            print(f"Using the following mount path: {mount_path}", flush=True)
+        try:
+            mount_path = getSuitableExport(file_storage_client, virtual_network_client, mt_ocid=mt_ocid, fs_ocid=share.id)
+            if verbose:
+                print(f"Using the following mount path: {mount_path}", flush=True)
+        except ValueError as exc:
+            print(f"ERROR: No Suitable Mount point: {exc}")
+            raise
 
         # Now call out to OS to mount RO
         if not dry_run:
@@ -387,6 +391,8 @@ for share in shares.data:
 
     except subprocess.CalledProcessError as exc:
         print(f"MOUNT ERROR: Continue processing to remove snapshot: {exc}", flush=True)
+    except ValueError as exc:
+        print(f"ERROR: No Export. Continue processing to remove snapshot: {exc}", flush=True)
             
     # Delete Snapshot - no need to keep at this point
     if not dry_run:
