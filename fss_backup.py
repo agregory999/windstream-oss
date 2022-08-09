@@ -333,8 +333,7 @@ for share in shares.data:
         # --s3-disable-checksum  only for large objects, avoid md5sum which is slow
         # --checkers = Core Count * 2
         if not dry_run:
-            if verbose:
-                print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
+            print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
             
             # Try / catch so as to not kill the process
             try:
@@ -348,9 +347,8 @@ for share in shares.data:
             # Additional Backup if weekly or monthly selected.  Options are Direct Copy or Server Side Copy
             if backup_type in ['weekly','monthly']:
                 if server_side_copy:
-                    if verbose:
-                        print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone server side copy')
-                        print(f"Calling rclone with rclone copy --stats 5m -v --no-check-dest--transfers={core_count*2} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
+                    print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone server side copy')
+                    print(f"Calling rclone with rclone copy --stats 5m -v --no-check-dest--transfers={core_count*2} --checkers={core_count*2} {remote_path} {additional_remote_path}", flush=True)
                     # Try / catch so as to not kill the process
                     try:
                         # 2x transfers since server-side
@@ -362,9 +360,8 @@ for share in shares.data:
                         print(f"RCLONE ERROR: Continue processing")
                 else:
                     # Direct Copy
-                    if verbose:
-                        print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone Direct Copy from FSS (full)')
-                        print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {additional_remote_path}", flush=True)
+                    print(f'Creating additional {backup_type} backup called {additional_copy_name}. Implemented as rclone Direct Copy from FSS (full)')
+                    print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {additional_remote_path}", flush=True)
                     
                     # Try / catch so as to not kill the process
                     try:
