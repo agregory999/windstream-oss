@@ -27,6 +27,14 @@ def extract_bytes(fs):
     except KeyError:
         return 0
 
+# Define Snapshot name for FSS
+# If daily, use the same name so that rclone sync will use versioning - ie incremental
+# Weekly or monthly will copy to new folder later
+snapshot_name = f"FSS-daily-Backup"
+
+# File system temporary Mount Point
+temp_mount = "/mnt/temp-backup"
+
 # Backup Type
 backup_type = None
 
@@ -63,16 +71,62 @@ fss_avail_domain = "UWQV:US-ASHBURN-AD-1"
 # Number of cores (like nproc)
 core_count = multiprocessing.cpu_count()
 
+########### SUB ROUTINES ############################
 def runRCLONE(rclone_remote, local_folder ):
     # Use subprocess
     return
 
-def createBackupBucket(object_storage_client, share_name):
+def cleanupFileSnapshot(file_storage_client, fs_ocid):
     # Use API to attempt bucket creation
-    object_storage_client
-    return
+    snapshots = file_storage_client.list_snapshots(file_system_id=fs_ocid)
+    for snap in snapshots.data:
+        if snap.name == snapshot_name:
+            if verbose:
+                print(f"Deleting old Snapshot {snapshot_name} with OCID: {snap.id}")
+                file_storage_client.delete_snapshot(snapshot_id=snap.id)
+            return
 
-#######################################    
+def cleanupTemporaryMount():
+    # Quietly ensures we have a clean mount point
+    try:
+        print(f"OS: umount -f {temp_mount}", flush=True)
+        subprocess.run(["umount","-f",f"{temp_mount}"],shell=False, check=True)
+    except:
+        print(f"OS: umount failed but this is ok", flush=True)
+        
+def ensureTemporaryMount():
+    # If mount doesn't exist
+    if not os.path.isdir(temp_mount):
+        # Attempt create and fail if we cannot
+        try:
+            os.makedirs(temp_mount)
+        except:
+            # Raise because if we cannot, we should kill the script immediately
+            print(f"ERROR: Cannot create {temp_mount}")
+            raise
+      
+def ensureBackupBucket(object_storage_client, bucket):
+   # Check bucket status - create if necessary
+    try:
+        object_storage_client.get_bucket(namespace_name=namespace_name,bucket_name=bucket)
+        if verbose:
+            print(f"Bucket {bucket} found", flush=True)
+    except oci.exceptions.ServiceError:
+        if verbose:
+            print(f"Bucket {bucket} not found - creating", flush=True)
+        if not dry_run:
+            object_storage_client.create_bucket(namespace_name=namespace_name,
+                                                create_bucket_details = oci.object_storage.models.CreateBucketDetails(
+                                                    name=bucket,
+                                                    compartment_id=oss_compartment_ocid,
+                                                    storage_tier="Standard",
+                                                    object_events_enabled=True,
+                                                    versioning="Enabled")
+                                                )
+        else:
+            print(f"Dry Run: Would have created bucket {bucket} in compartment {oss_compartment_ocid}", flush=True)                                        
+
+########### MAIN ROUTINE ############################    
 # Main routine
 
 # Parse Arguments
@@ -140,16 +194,15 @@ else:
     config = oci.config.from_file()
 
 
-##################################
+########## STARTUP ######################
 
 object_storage_client = oci.object_storage.ObjectStorageClient(config)
 file_storage_client = oci.file_storage.FileStorageClient(config)
 namespace_name = object_storage_client.get_namespace().data
 
-# Define Snapshot name for FSS
-# If daily, use the same name so that rclone sync will use versioning - ie incremental
-# Weekly or monthly will copy to new folder later
-snapshot_name = f"FSS-daily-Backup"
+# Try to see if mount is there and clean - die if not (raise unchecked)
+ensureTemporaryMount()
+cleanupTemporaryMount()
 
 # Explain what we are doing
 if backup_type in ['weekly','monthly']:
@@ -194,40 +247,30 @@ for share in shares.data:
         print(f"File System is {round(share.metered_bytes/(1024*1024*1024), 2)} GB.  Threshold is {threshold_gb} GB.  Skipping", flush=True)
         continue
 
-    # Check bucket status - create if necessary
-    try:
-        object_storage_client.get_bucket(namespace_name=namespace_name,bucket_name=backup_bucket_name)
-        if verbose:
-            print(f"Bucket {backup_bucket_name} found", flush=True)
-    except oci.exceptions.ServiceError:
-        if verbose:
-            print(f"Bucket {backup_bucket_name} not found - creating", flush=True)
+    # Ensure that the bucket is there
+    ensureBackupBucket(object_storage_client=object_storage_client,bucket=backup_bucket_name)
+    # Try to create Snap - if we can't, print error and continue
+    try: 
+        # FSS Snapshot (for clean backup)
         if not dry_run:
-            object_storage_client.create_bucket(namespace_name=namespace_name,
-                                                create_bucket_details = oci.object_storage.models.CreateBucketDetails(
-                                                    name=backup_bucket_name,
-                                                    compartment_id=oss_compartment_ocid,
-                                                    storage_tier="Standard",
-                                                    object_events_enabled=True,
-                                                    versioning="Enabled")
-                                                )
+            # Try to delete FSS Snapshot - ok if it fails
+            cleanupFileSnapshot(file_storage_client=file_storage_client, fs_ocid=share.id)
+
+            if verbose:
+                print(f"Creating FSS Snapshot: {snapshot_name} via API")
+            snapstart = time.time()
+            snapshot = file_storage_client.create_snapshot(create_snapshot_details=oci.file_storage.models.CreateSnapshotDetails(
+                                                file_system_id=share.id,
+                                                name=snapshot_name)
+                                            )
+            snapend = time.time()
+            if verbose:
+                print(f"FSS Snapshot time(ms): {(snapend - snapstart):.2f}s OCID: {snapshot.data.id}", flush=True)
         else:
-            print(f"Dry Run: Would have created bucket {backup_bucket_name} in compartment {oss_compartment_ocid}", flush=True)                                        
-        
-    # FSS Snapshot (for clean backup)
-    if not dry_run:
-        if verbose:
-            print(f"Creating FSS Snapshot: {snapshot_name} via API")
-        snapstart = time.time()
-        snapshot = file_storage_client.create_snapshot(create_snapshot_details=oci.file_storage.models.CreateSnapshotDetails(
-                                            file_system_id=share.id,
-                                            name=snapshot_name)
-                                        )
-        snapend = time.time()
-        if verbose:
-            print(f"FSS Snapshot time(ms): {(snapend - snapstart):.2f}s OCID: {snapshot.data.id}", flush=True)
-    else:
-        print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API", flush=True)
+            print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API", flush=True)
+    except:
+        print(f"FSS SNAP ERROR - delete manually and retry this Share", flush=True)
+        continue
 
     # Try mount and rclone, it not, clean up snapshot
     try:
