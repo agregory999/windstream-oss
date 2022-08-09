@@ -134,21 +134,20 @@ def getSuitableExport(file_storage_client, virtual_network_client, mt_ocid, fs_o
     # Grab the list of exports from MT and iterate. Pick one with the right mount IP and return it
     mount_target = file_storage_client.get_mount_target(mount_target_id=mt_ocid)
     mount_ip = virtual_network_client.get_private_ip(private_ip_id=mount_target.data.private_ip_ids[0])
-    
-    print(f"MT IP: {mount_ip} ID {mount_target.data.id}",flush=True)
-    # Grab from Export Set
-    # export_set = file_storage_client.get_export_set(export_set_id=mount_target.export_set_id)
-    
-    # Iterate And grab first exports
-    #exports = file_storage_client.list_exports(file_system_id=fs_ocid)
+    if verbose:
+        print(f"MT IP: {mount_ip.data.ip_address} ID {mount_target.data.id}",flush=True)
+  
+    # Iterate And grab first suitable export
     exports = file_storage_client.list_exports(export_set_id=mount_target.data.export_set_id)
     for export in exports.data:
         if export.file_system_id == fs_ocid:
-            print(f"MT {mount_ip.data.ip_address} Found {export.id} with path {export.path}",flush=True)
+            if verbose:
+                print(f"MT {mount_ip.data.ip_address} Found {export.id} with path {export.path}",flush=True)
             return f"{mount_ip.data.ip_address}:{export.path}"
-        print(f"No Match for {export.file_system_id}")
+        if verbose:
+            print(f"No Match for {export.file_system_id}")
     # Nothing suitable
-    raise ValueError("Cannot find Matching export")
+    raise ValueError("Cannot find any matching exports")
 
 ########### MAIN ROUTINE ############################    
 # Main routine
@@ -303,18 +302,19 @@ for share in shares.data:
         # Call the helper to get export path and mount
         # Get export path
         try:
+            # DOn't need to try here, but just in case, try and raise
             mount_path = getSuitableExport(file_storage_client, virtual_network_client, mt_ocid=mt_ocid, fs_ocid=share.id)
             if verbose:
                 print(f"Using the following mount path: {mount_path}", flush=True)
         except ValueError as exc:
-            print(f"ERROR: No Suitable Mount point: {exc}")
+            #print(f"ERROR: No Suitable Mount point: {exc}")
             raise
 
         # Now call out to OS to mount RO
         if not dry_run:
             if verbose:
                 print(f"OS: mount -r {mount_path} {temp_mount}", flush=True)
-            subprocess.run(["mount","-r",f"{mount_IP}:{share.display_name}",f"{temp_mount}"],shell=False, check=True)
+            subprocess.run(["mount","-r",f"{mount_path}",f"{temp_mount}"],shell=False, check=True)
         else:
             print(f"Dry Run: mount -r {mount_path} {temp_mount}")
 
@@ -381,19 +381,27 @@ for share in shares.data:
                 else:
                     print(f"Dry Run: rclone sync --progress --metadata --max-backlog 999999 --links --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}")
 
-        # Unmount File System
+        # Unmount File System (Cleanup)
         if not dry_run:
             if verbose:
-                print(f"OS: umount /mnt/temp-backup", flush=True)
-            subprocess.run(["umount","/mnt/temp-backup"],shell=False, check=True)
+                print(f"OS: umount {temp_mount}", flush=True)
+            subprocess.run(["umount",f"{temp_mount}"],shell=False, check=True)
         else:
-            print(f"Dry Run: umount /mnt/temp-backup", flush=True)
+            print(f"Dry Run: umount {temp_mount}", flush=True)
 
     except subprocess.CalledProcessError as exc:
-        print(f"MOUNT ERROR: Continue processing to remove snapshot: {exc}", flush=True)
+        print(f"ERROR: RClone or Mount failed. Continue processing to remove snapshot", flush=True)
+        if verbose:
+            print(exc)
     except ValueError as exc:
-        print(f"ERROR: No Export. Continue processing to remove snapshot: {exc}", flush=True)
-            
+        print(f"ERROR: No Export. Continue processing to remove snapshot", flush=True)
+        if verbose:
+            print(exc)
+    except oci.exceptions.RequestException as exc:
+        print(f"ERROR: API Failed. Continue processing to remove snapshot", flush=True)
+        if verbose:
+            print(exc)
+             
     # Delete Snapshot - no need to keep at this point
     if not dry_run:
         if verbose:
