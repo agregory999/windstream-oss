@@ -339,7 +339,7 @@ for share in shares.data:
             # Try / catch so as to not kill the process
             try:
                 completed = subprocess.run(["rclone","sync", f'{"-vv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
-                                            "--s3-chunk-size=16M", "--stats", "5m", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
+                                            "--s3-chunk-size=16M", "--stats", "5m", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*3}",
                                             f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{remote_path}"],shell=False, check=True)
                 print (f"RCLONE output: {completed.stdout}", flush=True)
             except subprocess.CalledProcessError:
@@ -355,7 +355,7 @@ for share in shares.data:
                     try:
                         # 2x transfers since server-side
                         # Also, since integrity check, don't check dest
-                        completed = subprocess.run(["rclone","copy", "--stats", "5m", f'{"-vv" if verbose else "-v"}', "--no-check-dest", f"--transfers={core_count*2}",f"--checkers={core_count*2}",
+                        completed = subprocess.run(["rclone","copy", "--stats", "5m", f'{"-vv" if verbose else "-v"}', "--no-check-dest", f"--transfers={core_count*2}",f"--checkers={core_count*3}",
                                                     f"{remote_path}", f"{additional_remote_path}"],shell=False, check=True)
                         print (f"RCLONE output: {completed.stdout}")
                     except subprocess.CalledProcessError:
@@ -370,7 +370,7 @@ for share in shares.data:
                     try:
                         # Still do integrity check (md5sum)
                         completed = subprocess.run(["rclone","copy", "--stats", "5m", f'{"-vv" if verbose else "-v"}', "--metadata", "--max-backlog", "999999", "--links",  
-                                                    "--s3-chunk-size=16M", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*2}",
+                                                    "--s3-chunk-size=16M", f"--s3-upload-concurrency={core_count}", f"--transfers={core_count}",f"--checkers={core_count*3}",
                                                     f"/mnt/temp-backup/.snapshot/{snapshot_name}",f"{additional_remote_path}"],shell=False, check=True)
                         print (f"RCLONE output: {completed.stdout}")
                     except subprocess.CalledProcessError:
