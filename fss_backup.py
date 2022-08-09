@@ -148,7 +148,7 @@ def getSuitableExport(file_storage_client, virtual_network_client, mt_ocid, fs_o
             return f"{mount_ip.data.ip_address}:{export.path}"
         print(f"No Match for {export.file_system_id}")
     # Nothing suitable
-    raise NameError("Cannot find Matching export")
+    raise ValueError("Cannot find Matching export")
 
 ########### MAIN ROUTINE ############################    
 # Main routine
