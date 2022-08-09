@@ -281,9 +281,20 @@ for share in shares.data:
     # Ensure that the bucket is there
     ensureBackupBucket(object_storage_client=object_storage_client,bucket=backup_bucket_name)
 
-    # Try to create Snap - if we can't, print error and continue
-    try: 
-        # FSS Snapshot (for clean backup)
+    # Try mount and rclone, it not, clean up snapshot
+    try:
+        # Call the helper to get export path and mount
+        # Get export path
+        try:
+            # Don't need to try here, but just in case, try and raise
+            mount_path = getSuitableExport(file_storage_client, virtual_network_client, mt_ocid=mt_ocid, fs_ocid=share.id)
+            if verbose:
+                print(f"Using the following mount path: {mount_path}", flush=True)
+        except ValueError as exc:
+            #print(f"ERROR: No Suitable Mount point: {exc}")
+            raise
+
+        # FSS Snapshot (for clean backup) - only do it is the mount was successful
         if not dry_run:
             # Try to delete FSS Snapshot - ok if it fails
             cleanupFileSnapshot(file_storage_client=file_storage_client, fs_ocid=share.id)
@@ -300,22 +311,6 @@ for share in shares.data:
                 print(f"FSS Snapshot time(ms): {(snapend - snapstart):.2f}s OCID: {snapshot.data.id}", flush=True)
         else:
             print(f"Dry Run: Create FSS Snapshot {snapshot_name} via API", flush=True)
-    except:
-        print(f"FSS SNAP ERROR - delete manually and retry this Share", flush=True)
-        continue
-
-    # Try mount and rclone, it not, clean up snapshot
-    try:
-        # Call the helper to get export path and mount
-        # Get export path
-        try:
-            # DOn't need to try here, but just in case, try and raise
-            mount_path = getSuitableExport(file_storage_client, virtual_network_client, mt_ocid=mt_ocid, fs_ocid=share.id)
-            if verbose:
-                print(f"Using the following mount path: {mount_path}", flush=True)
-        except ValueError as exc:
-            #print(f"ERROR: No Suitable Mount point: {exc}")
-            raise
 
         # Now call out to OS to mount RO
         if not dry_run:
