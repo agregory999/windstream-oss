@@ -93,10 +93,12 @@ def cleanupFileSnapshot(file_storage_client, fs_ocid):
 def cleanupTemporaryMount():
     # Quietly ensures we have a clean mount point
     try:
-        print(f"OS: umount -f {temp_mount}", flush=True)
+        if verbose:
+            print(f"OS: umount -f {temp_mount}", flush=True)
         subprocess.run(["umount","-f",f"{temp_mount}"],shell=False, check=True)
     except:
-        print(f"OS: umount failed but this is ok", flush=True)
+        if verbose:
+            print(f"OS: umount failed but this is ok", flush=True)
         
 def ensureTemporaryMount():
     # If mount doesn't exist
