@@ -58,6 +58,7 @@ rclone_remote = None
 
 # Mount Point IP
 mount_IP = None
+mt_ocid = None
 
 # Threashold GB (Don't back up if > this)
 threshold_gb = sys.maxsize
@@ -129,6 +130,26 @@ def ensureBackupBucket(object_storage_client, bucket):
         else:
             print(f"Dry Run: Would have created bucket {bucket} in compartment {oss_compartment_ocid}", flush=True)                                        
 
+def getSuitableExport(file_storage_client, virtual_network_client, mt_ocid, fs_ocid):
+    # Grab the list of exports from MT and iterate. Pick one with the right mount IP and return it
+    mount_target = file_storage_client.get_mount_target(mount_target_id=mt_ocid)
+    mount_ip = virtual_network_client.get_private_ip(private_ip_id=mount_target.data.private_ip_ids[0])
+    
+    print(f"MT IP: {mount_ip} ID {mount_target.data.id}",flush=True)
+    # Grab from Export Set
+    # export_set = file_storage_client.get_export_set(export_set_id=mount_target.export_set_id)
+    
+    # Iterate And grab first exports
+    #exports = file_storage_client.list_exports(file_system_id=fs_ocid)
+    exports = file_storage_client.list_exports(export_set_id=mount_target.data.export_set_id)
+    for export in exports.data:
+        if export.file_system_id == fs_ocid:
+            print(f"MT {mount_ip.data.ip_address} Found {export.id} with path {export.path}",flush=True)
+            return f"{mount_ip.data.ip_address}:{export.path}"
+        print(f"No Match for {export.file_system_id}")
+    # Nothing suitable
+    raise NameError("Cannot find Matching export")
+
 ########### MAIN ROUTINE ############################    
 # Main routine
 
@@ -140,7 +161,7 @@ parser.add_argument("-fc", "--fsscompartment", help="FSS Compartment OCID", requ
 parser.add_argument("-oc", "--osscompartment", help="OSS Backup Comaprtment OCID", required=True)
 parser.add_argument("-r", "--remote", help="Named rclone remote for that user.  ie oci:", required=True)
 parser.add_argument("-ad", "--availabilitydomain", help="AD for FSS usage.  Such as dDzb:US-ASHBURN-AD-1", required=True)
-parser.add_argument("-m", "--mountip", help="Mount Point IP to use.", required=True)
+parser.add_argument("-m", "--mountocid", help="Mount Point OCID to use.", required=True)
 parser.add_argument("-pr", "--profile", type=str, help="OCI Profile name (if not default)")
 parser.add_argument("-ty", "--type", type=str, help="Type: daily(def), weekly, monthly", default="daily")
 parser.add_argument("--dryrun", help="Dry Run - print what it would do", action="store_true")
@@ -171,8 +192,8 @@ if args.osscompartment:
     oss_compartment_ocid = args.osscompartment
 
 # Mount IP
-if args.mountip:
-    mount_IP = args.mountip
+if args.mountocid:
+    mt_ocid = args.mountocid
 
 # RCLONE Remote
 if args.remote:
@@ -201,6 +222,7 @@ else:
 
 object_storage_client = oci.object_storage.ObjectStorageClient(config)
 file_storage_client = oci.file_storage.FileStorageClient(config)
+virtual_network_client = oci.core.VirtualNetworkClient(config)
 namespace_name = object_storage_client.get_namespace().data
 
 # Try to see if mount is there and clean - die if not (raise unchecked)
@@ -278,13 +300,19 @@ for share in shares.data:
 
     # Try mount and rclone, it not, clean up snapshot
     try:
+        # Call the helper to get export path and mount
+        # Get export path
+        mount_path = getSuitableExport(file_storage_client, virtual_network_client, mt_ocid=mt_ocid, fs_ocid=share.id)
+        if verbose:
+            print(f"Using the following mount path: {mount_path}", flush=True)
+
         # Now call out to OS to mount RO
         if not dry_run:
             if verbose:
-                print(f"OS: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup", flush=True)
-            subprocess.run(["mount","-r",f"{mount_IP}:{share.display_name}","/mnt/temp-backup"],shell=False, check=True)
+                print(f"OS: mount -r {mount_path} {temp_mount}", flush=True)
+            subprocess.run(["mount","-r",f"{mount_IP}:{share.display_name}",f"{temp_mount}"],shell=False, check=True)
         else:
-            print(f"Dry Run: mount -r {mount_IP}:{share.display_name} /mnt/temp-backup")
+            print(f"Dry Run: mount -r {mount_path} {temp_mount}")
 
         # Define remote path on OSS
         remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
@@ -297,6 +325,7 @@ for share in shares.data:
         # Call out to rclone it
         # Additional flags to consider
         # --s3-disable-checksum  only for large objects, avoid md5sum which is slow
+        # --checkers = Core Count * 2
         if not dry_run:
             if verbose:
                 print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links --s3-chunk-size=16M --s3-upload-concurrency={core_count} --transfers={core_count} --checkers={core_count*2} /mnt/temp-backup/.snapshot/{snapshot_name} {remote_path}", flush=True)
@@ -356,8 +385,8 @@ for share in shares.data:
         else:
             print(f"Dry Run: umount /mnt/temp-backup", flush=True)
 
-    except subprocess.CalledProcessError:
-        print(f"MOUNT ERROR: Continue processing to remove snapshot", flush=True)
+    except subprocess.CalledProcessError as exc:
+        print(f"MOUNT ERROR: Continue processing to remove snapshot: {exc}", flush=True)
             
     # Delete Snapshot - no need to keep at this point
     if not dry_run:
