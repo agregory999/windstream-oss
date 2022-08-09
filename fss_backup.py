@@ -83,7 +83,10 @@ def cleanupFileSnapshot(file_storage_client, fs_ocid):
         if snap.name == snapshot_name:
             if verbose:
                 print(f"Deleting old Snapshot {snapshot_name} with OCID: {snap.id}")
-                file_storage_client.delete_snapshot(snapshot_id=snap.id)
+            file_storage_client.delete_snapshot(snapshot_id=snap.id)
+            if verbose:
+                print(f"Sleeping 5sec to allow deletion to complete")
+            time.sleep(5)
             return
 
 def cleanupTemporaryMount():
@@ -249,6 +252,7 @@ for share in shares.data:
 
     # Ensure that the bucket is there
     ensureBackupBucket(object_storage_client=object_storage_client,bucket=backup_bucket_name)
+
     # Try to create Snap - if we can't, print error and continue
     try: 
         # FSS Snapshot (for clean backup)
