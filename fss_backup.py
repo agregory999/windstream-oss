@@ -227,7 +227,15 @@ virtual_network_client = oci.core.VirtualNetworkClient(config)
 namespace_name = object_storage_client.get_namespace().data
 
 # Try to see if mount is there and clean - die if not (raise unchecked)
-ensureTemporaryMount()
+
+# If we can't have the mount, die
+try:
+    ensureTemporaryMount()
+except FileExistsError as exc:
+    print(f"FATAL: No way to use mount point {temp_mount}: {exc}")
+    exit(1)
+
+# Now clean it up if it is mounted    
 cleanupTemporaryMount()
 
 # Explain what we are doing
