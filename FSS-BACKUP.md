@@ -145,7 +145,7 @@ To run in verbose mode, pass in `-v`
 
 Most helpful, before running for real, add `--dryrun` to have it print what it would do, while doing nothing.
 
-To change the Backup type to Full and do a weekly or monthly, add `--type weekly` or `--type monthly`.  In these cases, a full backups is created of the File System in the object store.
+To change the Backup type to Full and do a weekly or monthly, add `--type weekly` or `--type monthly`.  In these cases, a full backups is created of the File System in the object store.  Both weekly and monthly imply a daily backup as well, so they are used in lieu of daily.
 
 Example with weekly backup of single File System, verbose mode:
 ```bash
@@ -223,15 +223,37 @@ Cron itself would then look like this (daily at 6pm):
 ```
 0 18 * * * /root/fss_backup/cronjob.sh >> /root/fss_backup/cron_output.log 2>&1
 ```
+
+### Cron Strategy
+The strategy could be to do daily backups on Mon-Thu, and then a weekly backup on Friday.  For Monthly, that can be in lieu of a weekly.  The cron tab could look like this:
+
+```
+0 18 * * 1-4 <daily backup>
+0 18 * * 5 [ $(date +"\%m") -eq $(date -d 7days +"\%m") ] && <weekly backup>
+0 18 * * 5 [ $(date +"\%m") -ne $(date -d 7days +"\%m") ] && <monthly backup>
+```
+
 ## Object Lifecycle
 
 Default and reasonable rules for OSS Lifecycle will prevent the backups from collecting forever and costing more money than they should.  There is a JSON here with some decent starting points.  Add it to the bucket that is created during the script:
 
 Lifecycle script
 ```
-prompt:>> oci os object-lifecycle-policy put --bucket-name fss-filesystem2_backup --from-json file://lifecycle_rules_json.txt
+prompt:>> oci os object-lifecycle-policy put --from-json file://lifecycle_rules_14_60_180.json --bucket-name <name of bucket> 
 WARNING: Updates to items will replace any existing values. Are you sure you want to continue? [y/N]: y
 {
     JSON
 }
+```
+You can add `--force` to prevent the prompt, for example in a script to "bulk-replace" the rules for a list of buckets.  To generate a list of buckets, grab the Compartment OCID where the buckets are, and run something like this:
+```
+prompt:>> oci os bucket list --compartment-id ocid1.compartment.oc1..comp..where.buckets.are --query 'data[].name' --output table
++--------------------------+
+| Column1                  |
++--------------------------+
+| fss-filesystem1_backup   |
+| fss-filesystem2_backup   |
+| fss-filesystem3_backup   |
+| ...                      |
++--------------------------+
 ```
