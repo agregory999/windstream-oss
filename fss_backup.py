@@ -30,7 +30,7 @@ def extract_bytes(fs):
 # Define Snapshot name for FSS
 # If daily, use the same name so that rclone sync will use versioning - ie incremental
 # Weekly or monthly will copy to new folder later
-snapshot_name = f"FSS-daily-Backup"
+snapshot_name = f"FSS-dailyBackup"
 
 # File system temporary Mount Point
 temp_mount = "/mnt/temp-backup"
@@ -322,7 +322,7 @@ for share in shares.data:
 
         # Define remote path on OSS
         remote_path = f"{rclone_remote}{backup_bucket_name}/{snapshot_name}"
-        additional_copy_name = f"FSS-{backup_type}-Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        additional_copy_name = f"FSS-{backup_type}Backup-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         additional_remote_path = f"{rclone_remote}{backup_bucket_name}/{additional_copy_name}"
         
         if verbose:

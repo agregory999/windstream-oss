@@ -7,7 +7,10 @@
       "object-name-filter": {
         "exclusion-patterns": null,
         "inclusion-patterns": null,
-        "inclusion-prefixes": null
+        "inclusion-prefixes": [
+          "FSS-monthly",
+          "FSS-weekly"
+        ]
       },
       "target": "objects",
       "time-amount": 1,
@@ -21,7 +24,7 @@
         "exclusion-patterns": null,
         "inclusion-patterns": null,
         "inclusion-prefixes": [
-          "FSS-daily-Backup"
+          "FSS-dailyBackup"
         ]
       },
       "target": "previous-object-versions",
@@ -36,11 +39,26 @@
         "exclusion-patterns": null,
         "inclusion-patterns": null,
         "inclusion-prefixes": [
-          "FSS-monthly-Backup"
+          "FSS-monthly"
         ]
       },
       "target": "objects",
       "time-amount": 180,
+      "time-unit": "DAYS"
+    },
+    {
+      "action": "DELETE",
+      "is-enabled": true,
+      "name": "delete-older-old-daily",
+      "object-name-filter": {
+        "exclusion-patterns": null,
+        "inclusion-patterns": null,
+        "inclusion-prefixes": [
+          "FSS-daily-Backup"
+        ]
+      },
+      "target": "objects",
+      "time-amount": 14,
       "time-unit": "DAYS"
     },
     {
@@ -51,7 +69,7 @@
         "exclusion-patterns": null,
         "inclusion-patterns": null,
         "inclusion-prefixes": [
-          "FSS-weekly-Backup"
+          "FSS-weekly"
         ]
       },
       "target": "objects",
@@ -74,10 +92,13 @@
       "object-name-filter": {
         "exclusion-patterns": null,
         "inclusion-patterns": null,
-        "inclusion-prefixes": null
+        "inclusion-prefixes": [
+          "FSS-monthly",
+          "FSS-weekly"
+        ]
       },
       "target": "objects",
-      "time-amount": 14,
+      "time-amount": 31,
       "time-unit": "DAYS"
     }
   ]
