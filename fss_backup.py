@@ -218,10 +218,13 @@ else:
     print('Performing Daily Incremental Backup', flush=True)
 
 # Print threshold if set
-if threshold_gb < sys.maxsize:
+if THRESHOLD_GB < sys.maxsize:
     # This means it was set to anything
     print(f"GB Threshold set to {THRESHOLD_GB} GB - will skip any FS larger than this", flush=True)
+
+# Set Start timer
 start = time.time()
+
 # Main loop - list File Shares
 
 # For listing, if the fss_ocid is set to a single FS, only do that in the filter
