@@ -309,7 +309,7 @@ for share in shares.data:
         if not dry_run:
             print(f"Calling rclone with rclone sync --stats 5m -v --metadata --max-backlog 999999 --links \
                 --s3-chunk-size=16M --s3-upload-concurrency={CORE_COUNT} --transfers={CORE_COUNT} \
-                --checkers={core_count*2} /mnt/temp-backup/.snapshot/{SNAPSHOT_NAME} {remote_path}", flush=True)
+                --checkers={CORE_COUNT*2} /mnt/temp-backup/.snapshot/{SNAPSHOT_NAME} {remote_path}", flush=True)
             
             # Try / catch so as to not kill the process
             try:
