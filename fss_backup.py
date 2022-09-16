@@ -10,6 +10,7 @@ For each share
     fire event (nice to have)
 '''
 
+from this import d
 import time
 import datetime
 import os
@@ -25,7 +26,7 @@ SNAPSHOT_NAME = "FSS-dailyBackup"
 # File system temporary Mount Point
 TEMP_MOUNT = "/mnt/temp-backup"
 
-# Threashold GB (Don't back up if > this)
+# Threshold GB (Don't back up if > this)
 THRESHOLD_GB = sys.maxsize
 
 # Number of cores (like nproc)
@@ -154,36 +155,28 @@ sort_bytes = args.sortbytes
 profile = args.profile
 
 # FSS Compartment OCID
-if args.fsscompartment:
-    fss_compartment_ocid = args.fsscompartment
+fss_compartment_ocid = args.fsscompartment if args.fsscompartment else None
 
 # FSS Single OCID
-if args.fssocid:
-    fss_ocid = args.fssocid
+fss_ocid = args.fssocid if args.fssocid else None
 
 # OSS Compartment OCID
-if args.osscompartment:
-    oss_compartment_ocid = args.osscompartment
+oss_compartment_ocid = args.osscompartment if args.osscompartment else None
 
 # Mount IP
-if args.mountocid:
-    mt_ocid = args.mountocid
+mt_ocid = args.mountocid
 
 # RCLONE Remote
-if args.remote:
-    rclone_remote = args.remote
+rclone_remote = args.remote
 
 # Type (daily, weekly, monthly)
-if args.type:
-    backup_type = args.type
+backup_type = args.type
 
 # Availability Domain
-if args.availabilitydomain:
-    fss_avail_domain = args.availabilitydomain
+fss_avail_domain = args.availabilitydomain
 
 # FSS Threshold
-if args.threshold:
-    threshold_gb = args.threshold
+threshold_gb = args.threshold if args.threshold else THRESHOLD_GB
 
 # Define OSS client and Namespace
 if profile:
@@ -218,9 +211,9 @@ else:
     print('Performing Daily Incremental Backup', flush=True)
 
 # Print threshold if set
-if THRESHOLD_GB < sys.maxsize:
+if threshold_gb < sys.maxsize:
     # This means it was set to anything
-    print(f"GB Threshold set to {THRESHOLD_GB} GB - will skip any FS larger than this", flush=True)
+    print(f"GB Threshold set to {threshold_gb} GB - will skip any FS larger than this", flush=True)
 
 # Set Start timer
 start = time.time()
@@ -254,8 +247,8 @@ for share in shares.data:
     print(f"Share name: {share.display_name} Size: {round(share.metered_bytes/(1024*1024*1024), 2)} GB", flush=True)
     backup_bucket_name = share.display_name.strip("/") + "_backup"
     
-    if (share.metered_bytes > (THRESHOLD_GB * 1024 * 1024 * 1024)):
-        print(f"File System is {round(share.metered_bytes/(1024*1024*1024), 2)} GB.  Threshold is {THRESHOLD_GB} GB.  Skipping", flush=True)
+    if (share.metered_bytes > (threshold_gb * 1024 * 1024 * 1024)):
+        print(f"File System is {round(share.metered_bytes/(1024*1024*1024), 2)} GB.  Threshold is {threshold_gb} GB.  Skipping", flush=True)
         continue
 
     # Ensure that the bucket is there
