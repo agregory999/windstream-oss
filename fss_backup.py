@@ -10,7 +10,6 @@ For each share
     fire event (nice to have)
 '''
 
-from this import d
 import time
 import datetime
 import os
