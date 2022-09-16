@@ -1,5 +1,7 @@
 # Windstream FSS Backup Process
 
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
+
 Backup is accomplished using the Python script fss_backup.py
 
 The script attempts to be self-documing, ie run it with no arguments for basic help or `-h` for actual help:
